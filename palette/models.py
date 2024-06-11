@@ -1,9 +1,12 @@
+from typing import Any
 from django.db.models import (Model,UUIDField, CharField, SlugField,
                               DateTimeField, Index, ImageField, TextField,
                                PositiveIntegerField, URLField, ForeignKey, CASCADE,
                                 BooleanField, ManyToManyField)
 from django.db.models.manager import Manager
 from uuid import uuid4
+from cloudinary.uploader import destroy
+import os
 
 
 class AvailableManager(Manager):
@@ -61,3 +64,15 @@ class Artwork(Model):
         
     def __str__(self):
         return self.name
+    
+    def delete(self, *args, **kwargs):
+        if self.image:
+            public_id = self.image.name
+            destroy(
+                public_id=public_id,
+                api_key=os.getenv("API_KEY"), 
+                api_secret=os.getenv("API_SECRET"), 
+                cloud_name=os.getenv("CLOUD_NAME"), 
+            ) 
+            
+        return super().delete(*args, **kwargs)

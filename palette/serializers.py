@@ -36,7 +36,7 @@ class ArtworkSerializer(ModelSerializer):
         genre_data = validated_data.pop("genres", [])
         
         validated_data["slug"] = slugify(validated_data["name"])
-        if "is_available" not in validated_data:
+        if "is_available" not in self.context["data"]:
             validated_data["is_available"] = True
             
         artwork = Artwork.objects.create(**validated_data)

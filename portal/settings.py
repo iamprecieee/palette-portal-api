@@ -37,7 +37,7 @@ INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
-    "django.contrib.sessions",
+    # "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
     
@@ -159,6 +159,10 @@ CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
         "LOCATION": os.getenv("REDIS_URL")
+    },
+    "session_cache": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.getenv("SESSION_REDIS_URL")
     }
 }
 
@@ -175,3 +179,9 @@ CLOUDINARY_STORAGE = {
 CLOUDINARY_URL = os.getenv("CLOUDINARY_URL")
 
 DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
+
+
+# Session settings
+CART_SESSION_ID = "cart"
+SESSION_CACHE_ALIAS = "session_cache"
+SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
