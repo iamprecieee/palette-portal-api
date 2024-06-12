@@ -21,6 +21,8 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    
+    # Using namespace versioning
     path("v1/palette/", include("palette.urls", namespace="v1")),
 ]
 

@@ -1,14 +1,26 @@
-from typing import Any
-from django.db.models import (Model,UUIDField, CharField, SlugField,
-                              DateTimeField, Index, ImageField, TextField,
-                               PositiveIntegerField, URLField, ForeignKey, CASCADE,
-                                BooleanField, ManyToManyField)
+from django.db.models import (
+    Model,
+    UUIDField,
+    CharField,
+    SlugField,
+    DateTimeField,
+    Index,
+    ImageField,
+    TextField,
+    PositiveIntegerField,
+    URLField,
+    DecimalField,
+    BooleanField,
+    ManyToManyField,
+)
 from django.db.models.manager import Manager
+
 from uuid import uuid4
 from cloudinary.uploader import destroy
 import os
 
 
+# Custom manager class for operating on available artworks
 class AvailableManager(Manager):
     def get_queryset(self):
         return super().get_queryset().filter(is_available=True)
@@ -19,20 +31,16 @@ class Genre(Model):
     name = CharField(max_length=250, unique=True)
     slug = SlugField(max_length=250, blank=True)
     created = DateTimeField(auto_now_add=True)
-    
+
     class Meta:
         db_table = "genre"
         ordering = ["-created"]
-        indexes = [
-            Index(fields=["id"]),
-            Index(fields=["name"]),
-            Index(fields=["slug"])
-        ]
-        
+        indexes = [Index(fields=["id"]), Index(fields=["name"]), Index(fields=["slug"])]
+
     def __str__(self):
         return self.name
-    
-    
+
+
 class Artwork(Model):
     id = UUIDField(primary_key=True, editable=False, default=uuid4)
     name = CharField(max_length=250, unique=True)
@@ -42,15 +50,16 @@ class Artwork(Model):
     artist = CharField(max_length=250)
     height = PositiveIntegerField(blank=True, null=True)
     width = PositiveIntegerField(blank=True, null=True)
+    price = DecimalField(decimal_places=2, max_digits=7, blank=True, null=True)
     instagram = URLField(max_length=255, blank=True)
     genre = ManyToManyField(Genre, related_name="artworks", db_index=True)
     is_available = BooleanField(default=True)
     created = DateTimeField(auto_now_add=True)
     updated = DateTimeField(auto_now=True)
-    
+
     objects = Manager()
     available = AvailableManager()
-    
+
     class Meta:
         db_table = "artwork"
         ordering = ["-created"]
@@ -61,18 +70,18 @@ class Artwork(Model):
             Index(fields=["artist"]),
             Index(fields=["is_available"]),
         ]
-        
+
     def __str__(self):
         return self.name
-    
+
+    # Overriding the `delete` method to also remove the deleted image from cloudinary
     def delete(self, *args, **kwargs):
         if self.image:
             public_id = self.image.name
             destroy(
                 public_id=public_id,
-                api_key=os.getenv("API_KEY"), 
-                api_secret=os.getenv("API_SECRET"), 
-                cloud_name=os.getenv("CLOUD_NAME"), 
-            ) 
-            
+                api_key=os.getenv("API_KEY"),
+                api_secret=os.getenv("API_SECRET"),
+                cloud_name=os.getenv("CLOUD_NAME"),
+            )
         return super().delete(*args, **kwargs)

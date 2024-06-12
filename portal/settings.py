@@ -37,15 +37,17 @@ INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
-    # "django.contrib.sessions",
+    "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
     
+    # Thirdparty apps
     "corsheaders",
     "rest_framework",
     "cloudinary_storage",
     "cloudinary",
     
+    # In-project apps
     "palette.apps.PaletteConfig",
 ]
 
@@ -129,11 +131,14 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR/"staticfiles"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
+
+# Media files 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR/"media"
+DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
 
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -141,7 +146,7 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
-# Rest framework settings
+# REST framework settings
 REST_FRAMEWORK = {
     "DEFAULT_VERSIONING_CLASS": "rest_framework.versioning.NamespaceVersioning",
     "DEFAULT_THROTTLE_CLASSES": [
@@ -167,7 +172,6 @@ CACHES = {
 }
 
 
-
 # Cloudinary settings
 CLOUDINARY_STORAGE = {
     "CLOUD_NAME": os.getenv("CLOUD_NAME"),
@@ -176,12 +180,8 @@ CLOUDINARY_STORAGE = {
     "SECURE": True,
 }
 
-CLOUDINARY_URL = os.getenv("CLOUDINARY_URL")
 
-DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
-
-
-# Session settings
+# Session settings (using a cache-db backend)
 CART_SESSION_ID = "cart"
 SESSION_CACHE_ALIAS = "session_cache"
 SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
