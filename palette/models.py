@@ -74,7 +74,7 @@ class Artwork(Model):
     def __str__(self):
         return self.name
 
-    # Overriding the `delete` method to also remove the deleted image from cloudinary
+    # Extending the `delete` method to also remove the deleted image from cloudinary
     def delete(self, *args, **kwargs):
         if self.image:
             public_id = self.image.name
