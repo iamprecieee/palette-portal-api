@@ -44,7 +44,8 @@ class ArtworkSerializer(ModelSerializer):
         validated_data["slug"] = slugify(validated_data["name"])
         if "is_available" not in self.context["data"]:
             validated_data["is_available"] = True
-
+            
+        genre_data = validated_data.pop("genres", [])
         artwork = Artwork.objects.create(**validated_data)
 
         """
@@ -52,7 +53,6 @@ class ArtworkSerializer(ModelSerializer):
         This requires a list containing the name of each genre to be added in the `ManyToManyField`, seperated by commas.
         For each name in the list, the ids of corresponding genre objects are added to the artwork object if existing.
         """
-        genre_data = validated_data.pop("genres", [])
         new_genre_list = []
         for genre_name in genre_data:
             genre = Genre.objects.filter(slug=slugify(genre_name)).first()
@@ -69,10 +69,11 @@ class ArtworkSerializer(ModelSerializer):
         if "name" in validated_data:
             validated_data["slug"] = slugify(validated_data["name"])
 
+        
+        new_genre_data = validated_data.pop("genres", [])
         instance = super().update(instance, validated_data)
 
         # Similar functionality to create()
-        new_genre_data = validated_data.pop("genres", [])
         new_genre_list = []
         for genre_name in new_genre_data:
             new_genre = Genre.objects.filter(slug=slugify(genre_name)).first()

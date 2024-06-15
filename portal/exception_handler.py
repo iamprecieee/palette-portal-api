@@ -13,7 +13,9 @@ def palette_exception_handler(exc, context):
         error_list = []
         for key, value in exc.detail.items():
             for error in value:
-                if error.code == "required":
+                if error.code == "blank":
+                    error_list.append(f"{key.title()} field cannot be blank.")
+                elif error.code == "required":
                     error_list.append(f"{key.title()} field is required.")
                 elif error.code == "unique":
                     error_list.append(error.capitalize())

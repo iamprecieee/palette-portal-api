@@ -17,3 +17,5 @@
 - Setting up cloudinary for image uploads and handling related operations e.g. image deletion from database.
 ### Custom exception handling Validation
 - Understanding and extending rest_framework's exception handlers to customize error responses.
+### Testing
+- Understanding and implementing tests using django/drf test suite to ensure endpoints work as intended.
