@@ -11,18 +11,25 @@ def palette_exception_handler(exc, context):
 
     if isinstance(exc, ValidationError):
         error_list = []
-        for key, value in exc.detail.items():
-            for error in value:
-                if error.code == "blank":
-                    error_list.append(f"{key.title()} field cannot be blank.")
-                elif error.code == "required":
-                    error_list.append(f"{key.title()} field is required.")
-                elif error.code == "unique":
-                    error_list.append(error.capitalize())
-                elif error.code == "invalid_choice":
-                    error_list.append(error.replace('"', ""))
-                else:
-                    error_list.append(error)
+        try:
+            for key, value in exc.detail.items():
+                for error in value:
+                    if error.code == "blank":
+                        error_list.append(f"{key.title()} field cannot be blank.")
+                    elif error.code == "required":
+                        error_list.append(f"{key.title()} field is required.")
+                    elif error.code == "unique":
+                        error_list.append(error.capitalize())
+                    elif error.code == "invalid_choice":
+                        error_list.append(error.replace('"', ""))
+                    elif error.code == "invalid":
+                        error_list.append(f"{key.title()} error. {error}")
+                    else:
+                        error_list.append(error)
+        except:
+            for key, value in exc.detail.items():
+                if value.code == "invalid":
+                    error_list.append(f"{key.title()} error. {value}")
 
         if len(error_list) == 1:
             error_list = error_list[0]

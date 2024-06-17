@@ -1,4 +1,5 @@
 from django.utils.text import slugify
+from rest_framework.fields import empty
 
 from .models import Genre, Artwork
 
@@ -9,6 +10,7 @@ from rest_framework.serializers import (
     SerializerMethodField,
     Serializer,
     ChoiceField,
+    ValidationError
 )
 
 
@@ -21,6 +23,14 @@ class GenreSerializer(ModelSerializer):
     def create(self, validated_data):
         name = validated_data["name"]
         return Genre.objects.create(name=name, slug=slugify(name))
+    
+    def update(self, instance, validated_data):
+        if "name" in validated_data:
+            validated_data["slug"] = slugify(validated_data["name"])  
+        elif "slug" in validated_data:
+            raise ValidationError({"update": "You can only update the Name field. Slug field updates automatically."}, code="invalid")
+            
+        return super().update(instance, validated_data)
 
 
 class ArtworkSerializer(ModelSerializer):
@@ -34,7 +44,7 @@ class ArtworkSerializer(ModelSerializer):
     class Meta:
         model = Artwork
         fields = "__all__"
-        read_only_fields = ["id", "genre", "created", "updated"]
+        read_only_fields = ["id", "created", "updated"]
 
     def get_genre(self, obj):
         genres = obj.genre.all()
@@ -66,9 +76,17 @@ class ArtworkSerializer(ModelSerializer):
         return artwork
 
     def update(self, instance, validated_data):
-        if "name" in validated_data:
-            validated_data["slug"] = slugify(validated_data["name"])
-
+        excluded = ["name", "slug", "image", "artist", "instagram"]
+        
+        error_list = []
+        for x in excluded:
+            if x in validated_data:
+                error_list.append(x)
+                
+        if len(error_list) == 1:
+            raise ValidationError({"update": f"You cannot edit the value of {error_list}."})
+        elif len(error_list) > 1:
+            raise ValidationError({"update": f"You cannot edit the values of {', '.join(error_list)}."})
         
         new_genre_data = validated_data.pop("genres", [])
         instance = super().update(instance, validated_data)
@@ -77,8 +95,9 @@ class ArtworkSerializer(ModelSerializer):
         new_genre_list = []
         for genre_name in new_genre_data:
             new_genre = Genre.objects.filter(slug=slugify(genre_name)).first()
-            if new_genre:
-                new_genre_list.append(new_genre)
+            if not new_genre:
+                raise ValidationError({"slug": "Genre does not match existing genre data."}, code="invalid")
+            new_genre_list.append(new_genre)
 
         new_genre_ids = [genre.id for genre in new_genre_list]
         if new_genre_ids:
@@ -89,5 +108,32 @@ class ArtworkSerializer(ModelSerializer):
 
 class CartUpdateSerializer(Serializer):
     QUANTITY_CHOICES = [(i, str(i)) for i in range(1, 11)]
-
-    quantity = ChoiceField(choices=QUANTITY_CHOICES)
+    quantity = ChoiceField(choices=QUANTITY_CHOICES, required=False)
+    
+    def __init__(self, instance=None, data=..., **kwargs):
+        super().__init__(instance, data, **kwargs)
+        
+        from .cart import Cart
+        
+        self.cart = Cart
+    
+    def create(self, validated_data):
+        request = self.context["request"]
+        artwork = self.context["artwork"]
+        cart = self.cart(request)
+        if "quantity" in validated_data:  
+            cart.add(artwork, validated_data["quantity"])
+        else:
+            cart.add(artwork)
+            
+        return cart
+    
+    def update(self, instance, validated_data):
+        request = self.context["request"]
+        cart = self.cart(request)
+        if "quantity" in validated_data:  
+            cart.add(instance, validated_data["quantity"], override=True)
+        else:
+            cart.add(instance, override=True)
+            
+        return cart

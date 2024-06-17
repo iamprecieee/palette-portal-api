@@ -24,8 +24,8 @@ class Cart:
     def save(self):
         self.session.modified = True
 
-    # Increments value of artwork `quantity` in cart
-    def add(self, artwork, quantity=1):
+    # Increments value of artwork `quantity` in cart or override `quantity` value of existing artwork dict
+    def add(self, artwork, quantity=1, override=False):
         """
         Retrieve an existing nested artwork dict from the cart or create a new one.
         The `key` is the artwork.id; the `value` is a dict of the artwork.price and quantity(defaults to 0).
@@ -33,16 +33,11 @@ class Cart:
         artwork_id = str(artwork.id)
         if artwork_id not in self.cart:
             self.cart[artwork_id] = {"price": str(artwork.price), "quantity": 0}
-
-        self.cart[artwork_id]["quantity"] += quantity
-        self.save()
-
-    # Similar to add(), but is used to override `quantity` value of existing artwork dict
-    def update(self, artwork, quantity=1):
-        artwork_id = str(artwork.id)
-        if artwork_id in self.cart:
+        if not override:
+            self.cart[artwork_id]["quantity"] += quantity
+        else: 
             self.cart[artwork_id]["quantity"] = quantity
-            self.save()
+        self.save()
 
     # Removes artwork from cart
     def remove(self, artwork):
@@ -73,13 +68,13 @@ class Cart:
         # Calculates and sets a total price for each items in cart
         for item in cart.values():
             item["total_price"] = str(
-                Decimal(item["price"]) * item["quantity"]
-            )  # Decimal() is not JSON-serializable
+                item["price"] * item["quantity"]
+            )  # Decimal() is not JSON-serializable **********
             yield item
 
     # Calculates the total number of individual items in cart
     def __len__(self):
-        return sum(item["quantity"] for item in self.cart.value())
+        return sum(item["quantity"] for item in self.cart.values())
 
     # Calculates the total price of all cart items
     def get_total_price(self):

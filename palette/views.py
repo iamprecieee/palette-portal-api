@@ -86,7 +86,7 @@ class GenreDetail(APIView):
                 cache.set("genre_list", genres_cache)
 
             genre_data = self.serializer_class(genre).data
-            return Response(genre_data, status=status.HTTP_201_CREATED)
+            return Response(genre_data, status=status.HTTP_202_ACCEPTED)
 
     def delete(self, request, slug):
         """
@@ -180,7 +180,7 @@ class ArtworkDetail(APIView):
                 cache.set("artwork_list", artworks_cache)
 
             artwork_data = self.serializer_class(artwork).data
-            return Response(artwork_data, status=status.HTTP_201_CREATED)
+            return Response(artwork_data, status=status.HTTP_202_ACCEPTED)
 
     def delete(self, request, slug):
         """
@@ -217,34 +217,33 @@ class CartDetail(APIView):
 
     def post(self, request, id):
         # Increments the quantity of artwork items in cart
-        cart = Cart(request)
         artwork = Artwork.available.filter(id=id).first()
         if not artwork:
             return Response("Artwork not found.", status=status.HTTP_404_NOT_FOUND)
 
-        serializer = self.serializer_class(data=request.data)
+        serializer = self.serializer_class(data=request.data,
+                                           context={"request": request, "artwork": artwork})
         if serializer.is_valid(raise_exception=True):
-            cart.add(artwork, serializer.validated_data["quantity"])
-            return Response(cart, status=status.HTTP_201_CREATED)
+            cart_data = serializer.save()
+            return Response(cart_data, status=status.HTTP_201_CREATED)
 
     def put(self, request, id):
         # Sets the quantity of artwork items in cart to a specific value
-        cart = Cart(request)
         artwork = Artwork.available.filter(id=id).first()
         if not artwork:
-            return Response("Artwork not found", status=status.HTTP_404_NOT_FOUND)
+            return Response("Artwork not found.", status=status.HTTP_404_NOT_FOUND)
 
-        serializer = self.serializer_class(data=request.data)
+        serializer = self.serializer_class(artwork, data=request.data, context={"request": request})
         if serializer.is_valid(raise_exception=True):
-            cart.update(artwork, serializer.validated_data["quantity"])
-            return Response(cart, status=status.HTTP_202_ACCEPTED)
+            cart_list = serializer.save()
+            return Response(cart_list, status=status.HTTP_202_ACCEPTED)
 
     def delete(self, request, id):
         # Removes artwork items from cart
         cart = Cart(request)
         artwork = Artwork.available.filter(id=id).first()
         if not artwork:
-            return Response("Artwork not found", status=status.HTTP_404_NOT_FOUND)
+            return Response("Artwork not found.", status=status.HTTP_404_NOT_FOUND)
 
         cart.remove(artwork)
         return Response(status=status.HTTP_204_NO_CONTENT)
