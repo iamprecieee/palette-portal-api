@@ -24,6 +24,7 @@ urlpatterns = [
     
     # Using namespace versioning
     path("v1/palette/", include("palette.urls", namespace="v1")),
+    path("v1/user/", include("user.urls", namespace="user")),
 ]
 
 if settings.DEBUG:

@@ -29,7 +29,7 @@ SECRET_KEY = "django-insecure-iz2w*6h2+&ylo3e%@$2#yg1b9+gt)e7vs$404&92+d46k#+snv
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = [] if DEBUG else ['127.0.0.1']
+ALLOWED_HOSTS = [] if DEBUG else ['127.0.0.1'] # Edit this depending on your production setup
 
 
 # Application definitions
@@ -46,13 +46,18 @@ INSTALLED_APPS = [
     "rest_framework",
     "cloudinary_storage",
     "cloudinary",
+    "knox",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
     
     # In-project apps
     "palette.apps.PaletteConfig",
+    "user.apps.UserConfig",
 ]
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
+    
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -61,6 +66,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    
+    "user.middleware.JWTBlacklistMiddleware", # Checks for blacklisted access tokens
 ]
 
 ROOT_URLCONF = "portal.urls"
@@ -151,11 +158,16 @@ REST_FRAMEWORK = {
     "DEFAULT_VERSIONING_CLASS": "rest_framework.versioning.NamespaceVersioning",
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+        
     ],
     "DEFAULT_THROTTLE_RATES": {
         "anon": "10/min",
+        "user": "20/min",
     },
     "EXCEPTION_HANDLER": "portal.exception_handler.palette_exception_handler",
+    "DEFAULT_AUTHENTICATION_CLASSES": ["user.models.PaletteTokenAuthentication",
+                                       "rest_framework_simplejwt.authentication.JWTAuthentication"],
 }
 
 
@@ -167,7 +179,7 @@ CACHES = {
     },
     "session_cache": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": os.getenv("SESSION_REDIS_URL")
+        "LOCATION": os.getenv("SESSION_CACHE_REDIS_URL")
     }
 }
 
@@ -182,6 +194,31 @@ CLOUDINARY_STORAGE = {
 
 
 # Session settings (using a cache-db backend)
-CART_SESSION_ID = "cart"
+CART_SESSION_ID = "cart" #For cart
+REFRESH_SESSION_ID = "refresh" # For refresh token
 SESSION_CACHE_ALIAS = "session_cache"
 SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+
+# User settings
+AUTH_USER_MODEL = "user.User"
+
+# Knox settings
+KNOX_TOKEN_MODEL = "user.PaletteAuthToken"
+
+REST_KNOX = {
+    "AUTH_TOKEN_CHARACTER_LENGTH": 64,
+    "USER_SERIALIZER": "user.serializers.LoginSerializer",
+    "TOKEN_LIMIT_PER_USER": None,
+    "AUTO_REFRESH": True,
+    "MIN_REFRESH_INTERVAL": 60,
+    "AUTH_HEADER_PREFIX": "Token",
+}
+
+# Simple_jwt settings
+
+SIMPLE_JWT = {
+    "UPDATE_LAST_LOGIN": True,
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "TOKEN_REFRESH_SERIALIZER": "user.serializers.RefreshSerializer",
+}

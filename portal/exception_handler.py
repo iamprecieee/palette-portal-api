@@ -1,5 +1,9 @@
 from rest_framework.views import exception_handler
-from rest_framework.exceptions import Throttled, ValidationError
+from rest_framework.exceptions import Throttled, ValidationError, AuthenticationFailed
+from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+from rest_framework.response import Response
+from rest_framework import status
+from django.db import IntegrityError
 
 
 # Overriding REST framework's exception handler to customize error response data
@@ -8,6 +12,15 @@ def palette_exception_handler(exc, context):
 
     if isinstance(exc, Throttled):
         response.data = exc.detail
+        
+    if isinstance(exc, AuthenticationFailed):
+        response.data = exc.detail
+        
+    if isinstance(exc, TokenError):
+        response.data = InvalidToken(TokenError.args[0])
+        
+    if isinstance(exc, IntegrityError):
+        response = Response(exc.args[0].capitalize(), status=status.HTTP_409_CONFLICT)
 
     if isinstance(exc, ValidationError):
         error_list = []
