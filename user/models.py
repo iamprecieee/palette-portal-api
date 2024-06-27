@@ -93,6 +93,7 @@ class Artist(Model):
     class Meta:
         db_table = "artist"
         ordering = ["-created"]
+        indexes = [Index(fields=["id", "user"])]
 
     def __str__(self):
         return self.user.username

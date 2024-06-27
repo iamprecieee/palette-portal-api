@@ -116,47 +116,66 @@ class RefreshTokenSerializer(Serializer):
         session_refresh.add(access_data["refresh"])
 
         return access_data
-    
-    
+
+
 class ArtistProfileSerializer(ModelSerializer):
     user = SerializerMethodField()
+
     class Meta:
         model = Artist
         fields = ["id", "bio", "instagram", "user"]
         read_only_fields = ["id"]
-        
+
     def get_user(self, obj):
         return str(obj.user)
-        
-    def save(self):
+
+    def create(self, validated_data):
         user = self.context["user"]
-        validated_data = self.validated_data
         validated_data["user"] = user
         try:
-            profile = Artist.objects.create(**validated_data)
+            with atomic():
+                profile = Artist.objects.create(**validated_data)
         except IntegrityError:
             raise IntegrityError("This user has an existing artist profile.")
-        
+
         return profile
+
+    def update(self, instance, validated_data):
+        profile_id = self.context["id"]
+        user = self.context["user"].id
+        if not Artist.objects.filter(id=profile_id, user=user):
+            raise PermissionError("You are not allowed to operate on another user's profile.")
         
-        
+        return super().update(instance, validated_data)
+
+
 class CollectorProfileSerializer(ModelSerializer):
     user = SerializerMethodField()
+
     class Meta:
         model = Collector
         fields = ["id", "bio", "instagram", "user"]
         read_only_fields = ["id"]
-        
+
     def get_user(self, obj):
         return str(obj.user)
-        
-    def save(self):
+
+    def create(self, validated_data):
         user = self.context["user"]
-        validated_data = self.validated_data
         validated_data["user"] = user
         try:
-            profile = Collector.objects.create(**validated_data)
+            with atomic():
+                profile = Collector.objects.create(**validated_data)
         except IntegrityError:
             raise IntegrityError("This user has an existing collector profile.")
-        
+
         return profile
+
+    def update(self, instance, validated_data):
+        profile_id = self.context["id"]
+        user = self.context["user"].id
+        if not Collector.objects.filter(id=profile_id, user=user):
+            raise PermissionError("You are not allowed to operate on another user's profile.")
+        
+
+        return super().update(instance, validated_data)

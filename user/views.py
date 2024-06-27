@@ -176,6 +176,49 @@ class ArtistProfileList(APIView):
             
             return Response(artist_data, status=status.HTTP_201_CREATED)
         
+class ArtistProfileDetail(APIView):
+    throttle_classes = [UserRateThrottle]
+    authentication_classes = [PaletteTokenAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    serializer_class = ArtistProfileSerializer
+    
+    def get(self, request, profile_id):
+        artist = Artist.objects.filter(id=profile_id).first()
+        if not artist:
+            return Response("Artist profile does not exist.", status=status.HTTP_404_NOT_FOUND)
+        
+        artist_data = self.serializer_class(artist).data
+        
+        return Response(artist_data, status=status.HTTP_200_OK)
+    
+    def put(self, request, profile_id):
+        artist = Artist.objects.filter(id=profile_id).first()
+        if not artist:
+            return Response("Artist profile does not exist.", status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = self.serializer_class(artist, data=request.data, partial=True,
+                                           context={"user": request.user, "id": profile_id})
+        if serializer.is_valid(raise_exception=True):
+            with atomic():
+                profile_data = serializer.save()
+                artist_data = self.serializer_class(profile_data).data
+                
+            return Response(artist_data, status=status.HTTP_202_ACCEPTED)
+        
+    def delete(self, request, profile_id):
+        artist = Artist.objects.filter(id=profile_id).first()
+        if not artist:
+            return Response("Artist profile does not exist.", status=status.HTTP_404_NOT_FOUND)
+        
+        user = request.user.id
+        if not Artist.objects.filter(id=profile_id, user=user):
+            raise PermissionError("You are not allowed to operate on another user's profile.")
+            
+        with atomic():
+            artist.delete()
+            
+        return Response(status=status.HTTP_204_NO_CONTENT)
+        
         
 class CollectorProfileList(APIView):
     throttle_classes = [UserRateThrottle]
@@ -197,3 +240,47 @@ class CollectorProfileList(APIView):
             collector_data = self.serializer_class(new_profile).data
             
             return Response(collector_data, status=status.HTTP_201_CREATED)
+        
+        
+class CollectorProfileDetail(APIView):
+    throttle_classes = [UserRateThrottle]
+    authentication_classes = [PaletteTokenAuthentication, JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+    serializer_class = CollectorProfileSerializer
+    
+    def get(self, request, profile_id):
+        collector = Collector.objects.filter(id=profile_id).first()
+        if not collector:
+            return Response("Collector profile does not exist.", status=status.HTTP_404_NOT_FOUND)
+        
+        collector_data = self.serializer_class(collector).data
+        
+        return Response(collector_data, status=status.HTTP_200_OK)
+    
+    def put(self, request, profile_id):
+        collector = Collector.objects.filter(id=profile_id).first()
+        if not collector:
+            return Response("Collector profile does not exist.", status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = self.serializer_class(collector, data=request.data, partial=True,
+                                           context={"user": request.user, "id": profile_id})
+        if serializer.is_valid(raise_exception=True):
+            with atomic():
+                profile_data = serializer.save()
+                collector_data = self.serializer_class(profile_data).data
+                
+            return Response(collector_data, status=status.HTTP_202_ACCEPTED)
+        
+    def delete(self, request, profile_id):
+        collector = Collector.objects.filter(id=profile_id).first()
+        if not collector:
+            return Response("Collector profile does not exist.", status=status.HTTP_404_NOT_FOUND)
+        
+        user = request.user.id
+        if not Collector.objects.filter(id=profile_id, user=user):
+            raise PermissionError("You are not allowed to operate on another user's profile.")
+            
+        with atomic():
+            collector.delete()
+            
+        return Response(status=status.HTTP_204_NO_CONTENT)

@@ -1,6 +1,6 @@
 from django.urls import reverse
 
-from .models import User, PaletteAuthToken
+from .models import User, Artist, Collector, PaletteAuthToken
 
 from rest_framework.test import APITestCase
 
@@ -174,9 +174,29 @@ class ProfileTestCase(APITestCase):
             password="Admin,123"
         )
         
+        user = User.objects.create_user(
+            email="admin747@gmail.com",
+            username="admin747",
+            password="Admin,747"
+        )
+        
+        artist = Artist.objects.create(
+            user=user
+        )
+        
+        collector = Collector.objects.create(
+            user=user
+        )
+        
         self.url = reverse("user:knox-login")
         self.url1 = reverse("user:artist-profile-list")
         self.url2 = reverse("user:collector-profile-list")
+        self.url3 = reverse("user:artist-profile-detail", kwargs={
+            "profile_id": artist.id
+        })
+        self.url4 = reverse("user:collector-profile-detail", kwargs={
+            "profile_id": collector.id
+        })
         
     def test_artist_list_get_post(self):
         response = self.client.post(self.url, data={
@@ -203,6 +223,73 @@ class ProfileTestCase(APITestCase):
         
         self.assertEqual("This user has an existing artist profile.", response3.data)
         
+    def test_artist_detail_get_post(self):
+        response = self.client.post(self.url, data={
+                "email": "admin747@gmail.com",
+                "password": "Admin,747"
+            })
+        
+        token = response.data["token"]
+        
+        response1 = self.client.put(self.url3, 
+                                    headers={"Authorization": f"Token {token}"},
+                                     data={"bio": "Just making more art.", "user": "fake-us3r-1d"})
+        
+        self.assertNotEqual("fake-us3r-1d", response1.data["user"]) \
+        and self.assertEqual("Just making more art.", response1.data["bio"])
+        
+        Artist.objects.create(
+            user=User.objects.create_user(
+                email="admin777@gmail.com",
+                username="admin777",
+                password="Admin,777"
+            )
+        )
+        
+        response3 = self.client.post(self.url, data={
+                "email": "admin777@gmail.com",
+                "password": "Admin,777"
+            })
+        
+        token = response3.data["token"]
+        
+        response4 = self.client.put(self.url3, 
+                                    headers={"Authorization": f"Token {token}"},
+                                     data={"bio": "Just making more art.", "user": "fake-us3r-1d"})
+        
+        self.assertEqual("You are not allowed to operate on another user's profile.", response4.data)
+        
+    def test_artist_detail_delete(self):
+        Artist.objects.create(
+            user=User.objects.create_user(
+                email="admin777@gmail.com",
+                username="admin777",
+                password="Admin,777"
+            )
+        )
+        
+        response = self.client.post(self.url, data={
+                "email": "admin747@gmail.com",
+                "password": "Admin,747"
+            })
+        
+        response1 = self.client.post(self.url, data={
+                "email": "admin777@gmail.com",
+                "password": "Admin,777"
+            })
+        
+        token = response.data["token"]
+        token1 = response1.data["token"]
+        
+        response2 = self.client.delete(self.url3, 
+                                    headers={"Authorization": f"Token {token1}"})
+        
+        self.assertEqual("You are not allowed to operate on another user's profile.", response2.data)
+        
+        response3 = self.client.delete(self.url3, 
+                                    headers={"Authorization": f"Token {token}"})
+        
+        self.assertEqual(None, response3.data)
         
     def test_collector_list_get_post(self):
         response = self.client.post(self.url, data={
@@ -229,3 +316,70 @@ class ProfileTestCase(APITestCase):
         
         self.assertEqual("This user has an existing collector profile.", response3.data)
         
+    def test_collector_detail_get_post(self):
+        response = self.client.post(self.url, data={
+                "email": "admin747@gmail.com",
+                "password": "Admin,747"
+            })
+        
+        token = response.data["token"]
+        
+        response1 = self.client.put(self.url4, 
+                                    headers={"Authorization": f"Token {token}"},
+                                     data={"bio": "Just collecting more art.", "user": "fake-us3r-1d"})
+
+        self.assertNotEqual("fake-us3r-1d", response1.data["user"]) \
+        and self.assertEqual("Just collecting more art.", response1.data["bio"])
+        
+        Collector.objects.create(
+            user=User.objects.create_user(
+                email="admin777@gmail.com",
+                username="admin777",
+                password="Admin,777"
+            )
+        )
+        
+        response3 = self.client.post(self.url, data={
+                "email": "admin777@gmail.com",
+                "password": "Admin,777"
+            })
+        
+        token = response3.data["token"]
+        
+        response4 = self.client.put(self.url4, 
+                                    headers={"Authorization": f"Token {token}"},
+                                     data={"bio": "Just collecting more art.", "user": "fake-us3r-1d"})
+        
+        self.assertEqual("You are not allowed to operate on another user's profile.", response4.data)
+        
+    def test_collector_detail_delete(self):
+        Collector.objects.create(
+            user=User.objects.create_user(
+                email="admin777@gmail.com",
+                username="admin777",
+                password="Admin,777"
+            )
+        )
+        
+        response = self.client.post(self.url, data={
+                "email": "admin747@gmail.com",
+                "password": "Admin,747"
+            })
+        
+        response1 = self.client.post(self.url, data={
+                "email": "admin777@gmail.com",
+                "password": "Admin,777"
+            })
+        
+        token = response.data["token"]
+        token1 = response1.data["token"]
+        
+        response2 = self.client.delete(self.url4, 
+                                    headers={"Authorization": f"Token {token1}"})
+        
+        self.assertEqual("You are not allowed to operate on another user's profile.", response2.data)
+        
+        response3 = self.client.delete(self.url4, 
+                                    headers={"Authorization": f"Token {token}"})
+        
+        self.assertEqual(None, response3.data)

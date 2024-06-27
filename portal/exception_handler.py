@@ -21,6 +21,9 @@ def palette_exception_handler(exc, context):
         
     if isinstance(exc, IntegrityError):
         response = Response(exc.args[0].capitalize(), status=status.HTTP_409_CONFLICT)
+        
+    if isinstance(exc, PermissionError):
+        response = Response(exc.args[0], status=status.HTTP_403_FORBIDDEN)
 
     if isinstance(exc, ValidationError):
         error_list = []
