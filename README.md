@@ -41,3 +41,8 @@
 ### Token/Stateless Authentication
 
 - Understanding the usage of [Knox](https://github.com/jazzband/django-rest-knox) and [simple_jwt](https://github.com/jazzband/djangorestframework-simplejwt) for user authentication and customizing them as needed.
+
+### Real-time Messaging
+
+- Understanding the use of django channels with websockets, and implementing a functional real-time chat between authenticated parties.
+- Adding functionality for message replies, online/offline/typing status updates.

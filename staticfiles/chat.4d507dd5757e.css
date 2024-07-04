@@ -1,0 +1,11 @@
+body {
+    /* background-color: rgb(236, 236, 222); */
+    background-color: #000000;
+    color: #000000;
+    font-family: monospace;
+    margin: 0;
+    overflow: auto;
+    padding: 0;
+    scroll-behavior: smooth;
+    text-transform: uppercase;
+}

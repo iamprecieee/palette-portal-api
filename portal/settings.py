@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 from pathlib import Path
 from dotenv import load_dotenv
 import os
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -34,6 +35,7 @@ ALLOWED_HOSTS = [] if DEBUG else ['127.0.0.1'] # Edit this depending on your pro
 
 # Application definitions
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -53,6 +55,7 @@ INSTALLED_APPS = [
     # In-project apps
     "palette.apps.PaletteConfig",
     "user.apps.UserConfig",
+    "chat.apps.ChatConfig",
 ]
 
 MIDDLEWARE = [
@@ -89,6 +92,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "portal.wsgi.application"
+ASGI_APPLICATION = "portal.asgi.application" # Used to locate routing configuration by channels
 
 
 # Database
@@ -215,10 +219,28 @@ REST_KNOX = {
 }
 
 # Simple_jwt settings
-
 SIMPLE_JWT = {
     "UPDATE_LAST_LOGIN": True,
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "TOKEN_REFRESH_SERIALIZER": "user.serializers.RefreshSerializer",
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=36)
 }
+
+# Channel layer settings
+
+if DEBUG:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
+    }
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [os.getenv("CHAT_REDIS_URL")],
+            }
+        }
+    }
