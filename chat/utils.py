@@ -33,7 +33,7 @@ def get_chat_members(chat_id):
 @database_sync_to_async
 def create_new_message(user, content, chat_id):
     new_message = Message.objects.create(sender=user, content=content, chat_id=chat_id)
-    return new_message.created
+    return new_message.id, new_message.created
 
 
 @database_sync_to_async
@@ -56,7 +56,7 @@ def create_new_reply(
         chat_id=chat_id,
         is_reply=True,
     )
-    return new_reply.created
+    return new_reply.id, new_reply.created
 
 
 @database_sync_to_async

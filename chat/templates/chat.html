@@ -15,15 +15,15 @@
         </div>
         <div class="chimera" id="chat-log">
             {% for message in messages %}
-                <div {% if message.sender == username %}class="my-bubble"{% else %}class="your-bubble"{% endif %} id="chat-bubble"> 
+                <div {% if message.sender == username %}class="my-bubble"{% else %}class="your-bubble"{% endif %} id="message-{{ message.id }}"> 
                     <div>
                         {% if message.is_reply == True %}
                             <!-- Displays the sender/content for replied messages -->
-                            <div class="reply">
+                            <div class="reply" data-reply-to="{{ message.previous_message_id }}">
                                 <span class="broker">{{ message.previous_sender }}</span>
                                 <span class="bank">{{ message.previous_content }}</span>
                                 <p hidden>{{ message.previous_message_id }}</p>
-                            </div><br>
+                            </div>
                         {% endif %}
                         <!-- Displays the sender/content for regular messages/replies -->
                         <span>{{ message.content }}</span><br>
@@ -55,208 +55,228 @@
 
         let bubbleSelected = null; 
 
-        // Initialize a new websocket connection matching the corresponding url_route pattern
-        const chatSocket = new WebSocket(
-            "wss://" + window.location.host + "/ws/chat/" + chatId + "/"
-        );
+        // Enclosing in  a function to implement reconnection strategy
+        function connectWebSocket() {
+            // Initialize a new websocket connection matching the corresponding url_route pattern
+            const chatSocket = new WebSocket(
+                "ws://" + window.location.host + "/ws/chat/" + chatId + "/"
+            );
 
-        // Scrolls chat to last message
-        scrollToBottom()
+            // Scrolls chat to last message
+            scrollToBottom()
 
-        // Activates the input field for user to begin/resume typing
-        document.querySelector("#message-input").focus();
+            // Activates the input field for user to begin/resume typing
+            document.querySelector("#message-input").focus();
 
-        // Actions when message is received from room group
-        chatSocket.onmessage = function(e) {
-            const data = JSON.parse(e.data);
-            if (data.type === "chat.typing") {
-                if (data.username === otherUsername) {
-                    document.querySelector("#chat-header").innerHTML = (data.content);
-                };
-            }
+            // Actions when message is received from room group
+            chatSocket.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                if (data.type === "chat.typing") {
+                    if (data.username === otherUsername) {
+                        document.querySelector("#chat-header").innerHTML = (data.content);
+                    };
+                }
 
-            // Message received when a client connects
-            else if (data.type === "chat.status") { // Sets status for connected user
-                if (data.username === otherUsername) {
-                    if (data.content === "online") {
-                        document.querySelectorAll(".status, .online").forEach(function(e) {
-                            e.style.backgroundColor = "#72d33d";
-                        });
+                // Message received when a client connects
+                else if (data.type === "chat.status") { // Sets status for connected user
+                    if (data.username === otherUsername) {
+                        if (data.content === "online") {
+                            document.querySelectorAll(".status, .online").forEach(function(e) {
+                                e.style.backgroundColor = "#72d33d";
+                            });
+                        }
+                        else {
+                            document.querySelectorAll(".status, .online").forEach(function(e) {
+                                e.style.backgroundColor = "rgb(169, 56, 56)";
+                            });
+                        };
+                    };
+                }
+
+                else if (data.type === "chat.reply") {
+                    var replyDiv = document.createElement("div");
+                    if (data.sender === username) {
+                        replyDiv.className = "my-bubble";
                     }
                     else {
-                        document.querySelectorAll(".status, .online").forEach(function(e) {
-                            e.style.backgroundColor = "rgb(169, 56, 56)";
-                        });
+                        replyDiv.className = "your-bubble";
                     };
-                };
-            }
 
-            else if (data.type === "chat.reply") {
-                var replyDiv = document.createElement("div");
-                if (data.sender === username) {
-                    replyDiv.className = "my-bubble";
+                    var innerReplyDiv = document.createElement("div");
+                    var replyContentDiv = document.createElement("div");
+                    replyContentDiv.className = "reply";
+                    replyContentDiv.setAttribute("data-reply-to", data.previous_message_id);
+                    replyContentDiv.innerHTML = "<span  class='broker'>" + data.previous_sender + "</span>" + "<span  class='bank'>" + data.previous_content + "</span>";
+                    innerReplyDiv.appendChild(replyContentDiv);
+                    innerReplyDiv.innerHTML += "<br>" + "<span>" + data.content + "</span>" + "<br>" + "<small>" + data.time + "</small>" + "<p id='pentagon' hidden>" + data.id + "</p>";
+                    replyDiv.appendChild(innerReplyDiv);
+                    document.querySelector("#chat-log").appendChild(replyDiv);
+
+                    initiailizeDraggable(replyDiv);
+                    scrollToBottom();
                 }
+
                 else {
-                    replyDiv.className = "your-bubble";
+                    var messageDiv = document.createElement("div");
+                    var innerMessageDiv = document.createElement("div")
+                    if (data.sender === username) {
+                        messageDiv.className = "my-bubble";
+                    }
+                    else {
+                        messageDiv.className = "your-bubble";
+                    };
+
+                    innerMessageDiv.innerHTML = "<span>" + data.content + "</span>" + "<br>" + "<small>" + data.time + "</small>" + "<p id='pentagon' hidden>" + data.id + "</p>";
+                    messageDiv.appendChild(innerMessageDiv)
+                    document.querySelector("#chat-log").appendChild(messageDiv);
+
+                    initiailizeDraggable(messageDiv);
+                    scrollToBottom();
                 };
-
-                var innerReplyDiv = document.createElement("div");
-                var replyContentDiv = document.createElement("div");
-                replyContentDiv.className = "reply";
-                replyContentDiv.innerHTML = "<span  class='broker'>" + data.previous_sender + "</span>" + "<span  class='bank'>" + data.previous_content + "</span>";
-                innerReplyDiv.appendChild(replyContentDiv);
-                innerReplyDiv.innerHTML += "<br>" + "<span>" + data.content + "</span>" + "<br>" + "<small>" + data.time + "</small>";
-                replyDiv.appendChild(innerReplyDiv);
-                document.querySelector("#chat-log").appendChild(replyDiv);
-
-                initiailizeDraggable(replyDiv);
-                scrollToBottom();
-            }
-
-            else {
-                var messageDiv = document.createElement("div");
-                var innerMessageDiv = document.createElement("div")
-                if (data.sender === username) {
-                    messageDiv.className = "my-bubble";
-                }
-                else {
-                    messageDiv.className = "your-bubble";
-                };
-
-                innerMessageDiv.innerHTML = "<span>" + data.content + "</span>" + "<br>" + "<small>" + data.time + "</small>";
-                messageDiv.appendChild(innerMessageDiv)
-                document.querySelector("#chat-log").appendChild(messageDiv);
-
-                initiailizeDraggable(messageDiv);
-                scrollToBottom();
             };
-        };
 
 
-        chatSocket.onclose = function(e) {
-            console.error("Chat socket closed unexpectedly.");
-        };
-        
-        document.querySelector("#message-input").onkeyup = function(e) {
-            if (e.key === "Enter") {
+            chatSocket.onclose = function(e) {
+                console.error("Chat socket closed unexpectedly.");
+                setTimeout(connectWebSocket, 5000);
+            };
+
+            document.querySelector("#message-input").onkeyup = function(e) {
+                if (e.key === "Enter") {
+                    sendMessage();
+                };
+            };
+
+            document.querySelector("#submit").onclick = function(e) {
                 sendMessage();
             };
-        };
 
-         document.querySelector("#submit").onclick = function(e) {
-             sendMessage();
-         };
+            let isMessageSent = false // Prevents sending messages for each character typed
+            document.querySelector("#message-input").addEventListener("input", isTyping);
+            document.querySelector("#message-input").addEventListener("blur", isDormant);
 
-        let isMessageSent = false // Prevents sending messages for each character typed
-        document.querySelector("#message-input").addEventListener("input", isTyping);
-        document.querySelector("#message-input").addEventListener("blur", isDormant);
+            // Retrieves all chat bubbles and calls the drag function on individual bubbles
+            const bubbles = document.querySelectorAll(".my-bubble, .your-bubble");
+            bubbles.forEach(initiailizeDraggable);   
 
-        // Retrieves all chat bubbles and calls the drag function on individual bubbles
-        const bubbles = document.querySelectorAll(".my-bubble, .your-bubble");
-        bubbles.forEach(initiailizeDraggable);   
+            // Functionality for making chat bubbles draggable
+            function initiailizeDraggable(bubble) {
+                const maxDragDistance = 50;
 
-        // Functionality for making chat bubbles draggable
-        function initiailizeDraggable(bubble) {
-            const maxDragDistance = 50;
+                // Adds a button to dragged bubbles to enable reset on click
+                const closeButton = document.createElement("button");
+                closeButton.classList.add("close-btn");
+                closeButton.innerText = "x";
 
-            // Adds a button to dragged bubbles to enable reset on click
-            const closeButton = document.createElement("button");
-            closeButton.classList.add("close-btn");
-            closeButton.innerText = "x";
+                // This resets dragged bubbles on click
+                closeButton.addEventListener("click", () => {
+                    bubble.style.transform = `translate(0)`;
+                    bubble.removeChild(closeButton);
+                    bubbleSelected = null;
+                });
 
-            // This resets dragged bubbles on click
-            closeButton.addEventListener("click", () => {
-                bubble.style.transform = `translate(0)`;
-                bubble.removeChild(closeButton);
-                bubbleSelected = null;
-            });
+                bubble.addEventListener("mousedown", (e) => {
+                    let startX = e.clientX;
+                    
+                    function onMouseMove(event) {
+                        // Resets previous bubbles when a new bubble is dragged
+                        if (bubbleSelected && bubbleSelected !== bubble) {
+                            bubbleSelected.style.transform = `translate(0)`;
+                            const bubbleCloseButton = bubbleSelected.querySelector(".close-btn");
+                            bubbleSelected.removeChild(bubbleCloseButton);
+                            bubbleSelected = null;
+                        }
 
-            bubble.addEventListener("mousedown", (e) => {
-                let startX = e.clientX;
-                
-                function onMouseMove(event) {
-                    // Resets previous bubbles when a new bubble is dragged
-                    if (bubbleSelected && bubbleSelected !== bubble) {
-                        bubbleSelected.style.transform = `translate(0)`;
-                        const bubbleCloseButton = bubbleSelected.querySelector(".close-btn");
-                        bubbleSelected.removeChild(bubbleCloseButton);
-                        bubbleSelected = null;
+                        let moveX = event.clientX - startX;
+                        let moveY = startX - event.clientX;
+
+                        // Current user's bubbles can only be dragged to the left
+                        if (moveX < 0 && Math.abs(moveX) < maxDragDistance) {
+                            if (bubble.className == "my-bubble") {
+                                bubble.style.transform = `translate(${moveX}px)`;
+                                bubble.appendChild(closeButton);
+                                bubbleSelected = bubble;
+                                document.querySelector("#message-input").focus();
+                            }
+                                
+                        };
+
+                        // Other users' bubbles can only be dragged to the right
+                        if (moveY < 0 && Math.abs(moveY) < maxDragDistance) {
+                            if (bubble.className == "your-bubble") {
+                                bubble.style.transform = `translate(${-moveY}px)`;
+                                bubble.appendChild(closeButton);
+                                bubbleSelected = bubble;
+                                document.querySelector("#message-input").focus();
+                            }
+                        };
+                    }
+                        
+
+                    function onMouseUp() {
+                        document.removeEventListener("mousemove", onMouseMove);
+                        document.removeEventListener("mouseup", onMouseUp);
                     }
 
-                    let moveX = event.clientX - startX;
-                    let moveY = startX - event.clientX;
-
-                    // current user's bubbles can only be dragged to the left
-                    if (moveX < 0 && Math.abs(moveX) < maxDragDistance) {
-                        if (bubble.className == "my-bubble") {
-                            bubble.style.transform = `translate(${moveX}px)`;
-                            bubble.appendChild(closeButton);
-                            bubbleSelected = bubble;
-                        }
-                            
-                    };
-
-                    // Other users' bubbles can only be dragged to the right
-                    if (moveY < 0 && Math.abs(moveY) < maxDragDistance) {
-                        if (bubble.className == "your-bubble") {
-                            bubble.style.transform = `translate(${-moveY}px)`;
-                            bubble.appendChild(closeButton);
-                            bubbleSelected = bubble;
-                        }
-                    };
-                }
-                    
-
-                function onMouseUp() {
-                    document.removeEventListener("mousemove", onMouseMove);
-                    document.removeEventListener("mouseup", onMouseUp);
-                }
-
-                document.addEventListener("mousemove", onMouseMove);
-                document.addEventListener("mouseup", onMouseUp);
+                    document.addEventListener("mousemove", onMouseMove);
+                    document.addEventListener("mouseup", onMouseUp);
+                });
+            };
+            
+            // Event listener to scroll to original message when reply bubbles are clicked
+            const replyBubbles = document.querySelectorAll(".reply");
+            replyBubbles.forEach(bubble => {
+                bubble.addEventListener("click", () => {
+                    const replyToId = bubble.getAttribute("data-reply-to");
+                    const originalMessage = document.querySelector(`#message-${replyToId}`);
+                    if (originalMessage) {
+                        originalMessage.scrollIntoView({ behavior: "smooth" });
+                    }
+                });
             });
-        };
-        
-         
+            
 
-        function scrollToBottom() {
-            let objDiv = document.querySelector("#chat-log");
-            objDiv.scrollTop = objDiv.scrollHeight;
-        };
-
-        function sendMessage() {
-            const messageInputDom = document.querySelector("#message-input");
-            const message = messageInputDom.value;
-
-             // Send the message from websocket client to the consumer (normal message if no bubble is dragged else reply)
-            if (bubbleSelected === null) {
-                chatSocket.send(JSON.stringify({"message": message}));
-            }
-            else {
-                const previousMessageId = bubbleSelected.querySelector("#pentagon").innerText
-                chatSocket.send(JSON.stringify({"message": message, "previous_message_id": previousMessageId, "type": "reply"}));
-                bubbleSelected.style.transform = `translate(0)`;
-                const bubbleCloseButton = bubbleSelected.querySelector(".close-btn");
-                bubbleSelected.removeChild(bubbleCloseButton);
-                bubbleSelected = null;
-            }
-
-            messageInputDom.value = "";
-            messageInputDom.focus();
-        };
-
-        function isTyping() {
-        if (!isMessageSent) {
-                chatSocket.send(JSON.stringify({"message": "typing", "type": "typing"}));
-                isMessageSent = true; // Ensures message is sent only once
+            function scrollToBottom() {
+                let objDiv = document.querySelector("#chat-log");
+                objDiv.scrollTop = objDiv.scrollHeight;
             };
 
-        };
+            function sendMessage() {
+                const messageInputDom = document.querySelector("#message-input");
+                const message = messageInputDom.value;
 
-        function isDormant() {
-            chatSocket.send(JSON.stringify({"message": "not_typing", "type": "typing"}));
-            isMessageSent = false
-        };
+                // Send the message from websocket client to the consumer (normal message if no bubble is dragged else reply)
+                if (bubbleSelected === null) {
+                    chatSocket.send(JSON.stringify({"message": message}));
+                }
+                else {
+                    const previousMessageId = bubbleSelected.querySelector("#pentagon").innerText
+                    chatSocket.send(JSON.stringify({"message": message, "previous_message_id": previousMessageId, "type": "reply"}));
+                    bubbleSelected.style.transform = `translate(0)`;
+                    const bubbleCloseButton = bubbleSelected.querySelector(".close-btn");
+                    bubbleSelected.removeChild(bubbleCloseButton);
+                    bubbleSelected = null;
+                }
+
+                messageInputDom.value = "";
+                messageInputDom.focus();
+            };
+
+            function isTyping() {
+            if (!isMessageSent) {
+                    chatSocket.send(JSON.stringify({"message": "typing", "type": "typing"}));
+                    isMessageSent = true; // Ensures message is sent only once
+                };
+
+            };
+
+            function isDormant() {
+                chatSocket.send(JSON.stringify({"message": "not_typing", "type": "typing"}));
+                isMessageSent = false
+            };
+        }
+
+        connectWebSocket();
     </script>
 </body>
 </html>

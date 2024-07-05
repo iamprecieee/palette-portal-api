@@ -40,7 +40,7 @@ class ChatRoomView(APIView):
         other_user = artist if request.user == collector else collector
         other_user_status = chat.is_artist_online if other_user == artist else chat.is_collector_online
         
-        messages = Message.objects.filter(chat=chat)[:20]
+        messages = Message.objects.filter(chat=chat)[:30]
         
         # Retain the order of messages
         messages_list = self.serializer_class(messages, many=True).data[::-1]

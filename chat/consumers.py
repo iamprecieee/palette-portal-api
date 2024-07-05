@@ -77,15 +77,15 @@ class ChatConsumer(AsyncWebsocketConsumer):
             )
 
         elif message_type == "reply":
-            replied_id = text_data_json.get("previous_message_id")
+            previous_message_id = text_data_json.get("previous_message_id")
             if message:
-                replied_message = await get_replied_message(replied_id, self.chat_id)
-                created = await create_new_reply(
+                replied_message = await get_replied_message(previous_message_id, self.chat_id)
+                reply_id, created = await create_new_reply(
                     self.user,
                     message,
                     replied_message["sender"],
                     replied_message["content"],
-                    replied_id,
+                    previous_message_id,
                     self.chat_id,
                 )
 
@@ -94,16 +94,18 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     {
                         "type": "chat.reply",
                         "content": message,
-                        "replied_sender": replied_message["sender"],
-                        "replied_content": replied_message["content"],
+                        "previous_sender": replied_message["sender"],
+                        "previous_content": replied_message["content"],
+                        "previous_message_id": previous_message_id,
                         "time": format(created, "P"),
                         "sender": self.username,
+                        "id": str(reply_id)
                     },
                 )
 
         else:
             if message:
-                created = await create_new_message(self.user, message, self.chat_id)
+                message_id, created = await create_new_message(self.user, message, self.chat_id)
 
                 await self.channel_layer.group_send(
                     self.chat_group_name,
@@ -113,6 +115,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         "created": format(created, "M. d, Y"),
                         "time": format(created, "P"),
                         "sender": self.username,
+                        "id": str(message_id)
                     },
                 )
 
@@ -134,6 +137,5 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_reply(self, event):  # Handler for chat.reply
         text_data = json.dumps(event)
-        print(text_data)
 
         await self.send(text_data)
