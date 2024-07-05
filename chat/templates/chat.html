@@ -59,7 +59,7 @@
         function connectWebSocket() {
             // Initialize a new websocket connection matching the corresponding url_route pattern
             const chatSocket = new WebSocket(
-                "ws://" + window.location.host + "/ws/chat/" + chatId + "/"
+                "wss://" + window.location.host + "/ws/chat/" + chatId + "/"
             );
 
             // Scrolls chat to last message

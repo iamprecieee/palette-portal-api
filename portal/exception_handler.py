@@ -14,10 +14,14 @@ def palette_exception_handler(exc, context):
         response.data = exc.detail
         
     if isinstance(exc, AuthenticationFailed):
-        response.data = exc.detail
+        try:
+            response.data = exc.detail["messages"][0]["message"]
+        except:
+            response.data = exc.detail
         
     if isinstance(exc, TokenError):
-        response.data = InvalidToken(TokenError.args[0])
+        response = Response(exc.args)
+        # response.data = InvalidToken(TokenError.args)
         
     if isinstance(exc, IntegrityError):
         response = Response(exc.args[0].capitalize(), status=status.HTTP_409_CONFLICT)
