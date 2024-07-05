@@ -1,5 +1,5 @@
 from rest_framework.views import exception_handler
-from rest_framework.exceptions import Throttled, ValidationError, AuthenticationFailed
+from rest_framework.exceptions import Throttled, ValidationError, AuthenticationFailed, NotAuthenticated
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from rest_framework.response import Response
 from rest_framework import status
@@ -13,7 +13,7 @@ def palette_exception_handler(exc, context):
     if isinstance(exc, Throttled):
         response.data = exc.detail
         
-    if isinstance(exc, AuthenticationFailed):
+    if isinstance(exc, (AuthenticationFailed, NotAuthenticated)):
         try:
             response.data = exc.detail["messages"][0]["message"]
         except:

@@ -1,6 +1,7 @@
 from django.conf import settings
 
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 
 
 class SessionRefreshToken:
@@ -31,17 +32,21 @@ class SessionRefreshToken:
     def remove(self, modify=False):
         if self.session["refresh"]:
             refresh_token = self.token()
-            refresh = RefreshToken(refresh_token)
-            if settings.SIMPLE_JWT["ROTATE_REFRESH_TOKENS"]:
-                if settings.SIMPLE_JWT['BLACKLIST_AFTER_ROTATION']:
-                    try:
-                        refresh.blacklist()
-                    except AttributeError:
-                        pass
-                
-                refresh.set_jti()
-                refresh.set_exp()
-                refresh.set_iat()
-                
-            del self.refresh["refresh"]
-            self.save()
+            try:
+                refresh = RefreshToken(refresh_token)
+                if settings.SIMPLE_JWT["ROTATE_REFRESH_TOKENS"]:
+                    if settings.SIMPLE_JWT['BLACKLIST_AFTER_ROTATION']:
+                        try:
+                            refresh.blacklist()
+                        except AttributeError:
+                            pass
+                    
+                    refresh.set_jti()
+                    refresh.set_exp()
+                    refresh.set_iat()
+                    
+                del self.refresh["refresh"]
+                self.save()
+            except TokenError:
+                # Deletes session data and regenerates a new session key
+                self.session.flush()
