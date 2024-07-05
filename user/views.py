@@ -284,3 +284,8 @@ class CollectorProfileDetail(APIView):
             collector.delete()
             
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CronJobAction(APIView):
+    def get(self, request):
+        return Response("Success", status=status.HTTP_200_OK)

@@ -12,7 +12,8 @@ from .views import (
     ArtistProfileList,
     CollectorProfileList,
     ArtistProfileDetail,
-    CollectorProfileDetail
+    CollectorProfileDetail,
+    CronJobAction
 )
 
 
@@ -31,4 +32,5 @@ urlpatterns = [
     path("profile/artist/<str:profile_id>/", ArtistProfileDetail.as_view(), name="artist-profile-detail"),
     path("profile/collector/", CollectorProfileList.as_view(), name="collector-profile-list"),
     path("profile/collector/<str:profile_id>/", CollectorProfileDetail.as_view(), name="collector-profile-detail"),
+    path("cron-job/", CronJobAction.as_view(), name="cron-job"),
 ]
