@@ -20,14 +20,14 @@ class ChatRoomView(APIView):
     serializer_class = MessageSerializer
 
     def get(self, request, chat_id):
-        """ 
+        """
         Checks if `request.user` is part of the chat, and retrieves the other chat member.
         Sends the latest 20 messages in context, including the username values.
         """
         chat = Chat.objects.filter(id=chat_id).first()
         if not chat:
             return Response("Chat does not exist.", status=status.HTTP_404_NOT_FOUND)
-        
+
         artist = chat.artist.user
         collector = chat.collector.user
         user = request.user
@@ -35,13 +35,15 @@ class ChatRoomView(APIView):
             return Response(
                 "You are not part of this chat.", status=status.HTTP_401_UNAUTHORIZED
             )
-            
+
         # Retrieve object and online/offline status for other user
         other_user = artist if request.user == collector else collector
-        other_user_status = chat.is_artist_online if other_user == artist else chat.is_collector_online
-        
+        other_user_status = (
+            chat.is_artist_online if other_user == artist else chat.is_collector_online
+        )
+
         messages = Message.objects.filter(chat=chat)[:30]
-        
+
         # Retain the order of messages
         messages_list = self.serializer_class(messages, many=True).data[::-1]
 

@@ -13,7 +13,9 @@ class ChatAdmin(ModelAdmin):
 class MessageAdmin(ModelAdmin):
     list_display = [
         "id",
+        "message_type",
         "content",
+        "audio_content",
         "is_reply",
         "previous_sender",
         "previous_content",
@@ -24,3 +26,4 @@ class MessageAdmin(ModelAdmin):
         "updated",
     ]
     list_filter = ["id", "sender", "created", "updated"]
+    

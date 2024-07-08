@@ -1,5 +1,3 @@
-from django.utils.dateformat import format
-
 from .utils import *
 
 import json
@@ -48,7 +46,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         """
         await self.channel_layer.group_send(
             self.chat_group_name,
-            {"type": "chat.status", "content": "offline", "username": self.username},
+            {
+                "type": "chat.status",
+                "content": "offline",
+                "username": self.username,
+            },
         )
 
         await self.channel_layer.group_discard(self.chat_group_name, self.channel_name)
@@ -56,68 +58,156 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await set_user_status(self.user, self.chat_id, status="offline")
 
     # Receive message from websocket client
-    async def receive(self, text_data=None):
-        text_data_json = json.loads(text_data)
-        message = text_data_json.get("message")
-        message_type = text_data_json.get("type")
+    async def receive(self, text_data=None, bytes_data=None):
+        if bytes_data:
+            """
+            Seperates the bytes data into its audio and json components using the delimiter(plain text).
+            Audio data is base64-encoded, while Json data is decoded and loaded into a metadata variable.
+            The message is then processed and sent as normal audio, or as an audio reply.
+            """
+            # Define the delimiter
+            delimiter = b"<delimiter>"
 
-        # Send message to chat group
-        if message_type == "typing":
-            await self.channel_layer.group_send(
-                self.chat_group_name,
-                {
-                    "type": "chat.typing",
-                    "username": self.username,
-                    "content": (
-                        f"{self.user} is typing..."
-                        if message == "typing"
-                        else str(self.user)
-                    ),
-                },
-            )
+            # Separate the JSON metadata from the audio data using the delimiter
+            if delimiter in bytes_data:
+                json_data, audio_data = bytes_data.split(delimiter, 1)
 
-        elif message_type == "reply":
-            previous_message_id = text_data_json.get("previous_message_id")
-            if message:
-                replied_message = await get_replied_message(previous_message_id, self.chat_id)
-                reply_id, created = await create_new_reply(
-                    self.user,
-                    message,
-                    replied_message["sender"],
-                    replied_message["content"],
-                    previous_message_id,
-                    self.chat_id,
-                )
+                # Decode the JSON metadata
+                metadata = json.loads(json_data.decode("utf-8"))
+                message_type = metadata.get("type")
 
-                await self.channel_layer.group_send(
-                    self.chat_group_name,
-                    {
-                        "type": "chat.reply",
-                        "content": message,
-                        "previous_sender": replied_message["sender"],
-                        "previous_content": replied_message["content"],
-                        "previous_message_id": previous_message_id,
-                        "time": format(created, "P"),
-                        "sender": self.username,
-                        "id": str(reply_id)
-                    },
-                )
+                # Handle binary data (audio message)
+                filename = await generate_random_filename()
+                message = b64encode(audio_data).decode(
+                    "utf-8"
+                )  # Encode to base64 for sending as text
 
+                if message_type == "audio":
+                    audio_message_id, created = await create_new_audio_message(
+                        self.user, self.chat_id
+                    )
+
+                    await self.channel_layer.group_send(
+                        self.chat_group_name,
+                        {
+                            "type": "chat.audio",
+                            "content": message,
+                            "filename": filename,
+                            "time": format(created, "P"),
+                            "sender": self.username,
+                            "id": str(audio_message_id),
+                        },
+                    )
+
+                    await update_audio_message(audio_message_id, message, filename)
+                else:
+                    previous_message_id = metadata.get("previous_message_id")
+                    replied_message = await get_replied_message(
+                        previous_message_id, self.chat_id
+                    )
+                    if replied_message["message_type"] == "AUD":
+                        previous_content = "AUDIO"
+                    else:
+                        previous_content = replied_message["content"]
+
+                    content = "audio"
+
+                    reply_id, created = await create_new_reply(
+                        self.user,
+                        content,
+                        replied_message["sender"],
+                        previous_content,
+                        previous_message_id,
+                        self.chat_id,
+                    )
+
+                    await self.channel_layer.group_send(
+                        self.chat_group_name,
+                        {
+                            "type": "chat.reply",
+                            "reply_format": "audio",
+                            "content": message,
+                            "previous_sender": replied_message["sender"],
+                            "previous_content": previous_content,
+                            "previous_message_id": previous_message_id,
+                            "time": format(created, "P"),
+                            "sender": self.username,
+                            "id": str(reply_id),
+                        },
+                    )
+
+                    await update_audio_message(reply_id, message, filename)
         else:
-            if message:
-                message_id, created = await create_new_message(self.user, message, self.chat_id)
 
+            text_data_json = json.loads(text_data)
+            message = text_data_json.get("message")
+            message_type = text_data_json.get("type")
+
+            # Send message to chat group
+            if message_type == "typing":
                 await self.channel_layer.group_send(
                     self.chat_group_name,
                     {
-                        "type": "chat.message",
-                        "content": message,
-                        "created": format(created, "M. d, Y"),
-                        "time": format(created, "P"),
-                        "sender": self.username,
-                        "id": str(message_id)
+                        "type": "chat.typing",
+                        "username": self.username,
+                        "content": (
+                            f"{self.user} is typing..."
+                            if message == "typing"
+                            else str(self.user)
+                        ),
                     },
                 )
+            elif message_type == "message":
+                if message:
+                    message_id, created = await create_new_message(
+                        self.user, message, self.chat_id
+                    )
+
+                    await self.channel_layer.group_send(
+                        self.chat_group_name,
+                        {
+                            "type": "chat.message",
+                            "content": message,
+                            "created": format(created, "M. d, Y"),
+                            "time": format(created, "P"),
+                            "sender": self.username,
+                            "id": str(message_id),
+                        },
+                    )
+            elif message_type == "reply":
+                previous_message_id = text_data_json.get("previous_message_id")
+                if message:
+                    replied_message = await get_replied_message(
+                        previous_message_id, self.chat_id
+                    )
+                    if replied_message["message_type"] == "AUD":
+                        previous_content = "AUDIO"
+                    else:
+                        previous_content = replied_message["content"]
+
+                    reply_id, created = await create_new_reply(
+                        self.user,
+                        message,
+                        replied_message["sender"],
+                        previous_content,
+                        previous_message_id,
+                        self.chat_id,
+                    )
+
+                    await self.channel_layer.group_send(
+                        self.chat_group_name,
+                        {
+                            "type": "chat.reply",
+                            "reply_format": "text",
+                            "content": message,
+                            "previous_sender": replied_message["sender"],
+                            "previous_content": previous_content,
+                            "previous_message_id": previous_message_id,
+                            "time": format(created, "P"),
+                            "sender": self.username,
+                            "id": str(reply_id),
+                        },
+                    )
 
     # Receive message from room group
     async def chat_status(self, event):  # Handler for chat.status
@@ -136,6 +226,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.send(text_data)
 
     async def chat_reply(self, event):  # Handler for chat.reply
+        text_data = json.dumps(event)
+
+        await self.send(text_data)
+
+    async def chat_audio(self, event):  # Handler for chat.audio
         text_data = json.dumps(event)
 
         await self.send(text_data)

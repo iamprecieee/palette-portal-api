@@ -15,7 +15,10 @@ def palette_exception_handler(exc, context):
         
     if isinstance(exc, (AuthenticationFailed, NotAuthenticated)):
         try:
-            response.data = exc.detail["messages"][0]["message"]
+            if exc.detail and exc.detail["code"] == "user_not_found":
+                response.data = exc.detail["detail"]
+            else:
+                response.data = exc.detail["messages"][0]["message"]
         except:
             response.data = exc.detail
         

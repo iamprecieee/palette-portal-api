@@ -136,6 +136,38 @@ body {
     user-select: none;
 }
 
+.purple {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    margin-bottom: 0;
+    padding-bottom: 0;
+    transition:transform 0.5s ease;
+}
+
+.play-button {
+    align-self: flex-start;
+    animation: bubbleAppear 0.5s ease-in-out;
+    background-color: #297cb3;
+    border-radius: 100%;
+    border-color: transparent;
+    box-shadow: 0 4px 7px rgba(0, 0, 0, 0.4);
+    box-sizing: border-box;
+    color: rgb(252, 217, 157);
+    font-size: 10px;
+    padding: 2px;
+    text-align: center;
+    transition:transform 0.5s ease;
+    user-select: none;
+}
+
+.audio-duration {
+    align-self: flex-end;
+    box-sizing: border-box;
+    margin-left: 10px;
+    font-size: 10px;
+}
+
 .close-btn {
     align-self: center;
     animation: bubbleAppear 0.5s ease-in-out;
@@ -147,8 +179,6 @@ body {
     margin-left: 10px;
     transition:transform 0.5s ease;
     user-select: none;
-
-
 }
 
 .reply {
@@ -180,6 +210,9 @@ body {
 
 .mirage {
     animation: bubbleAppear 1s ease-in-out;
+    display: flex;
+    align-items: center;
+    flex-direction: row;
     width: 100%;
 }
 
@@ -203,6 +236,33 @@ body {
     margin-bottom: 20px;
     outline: none;
     padding: 10px;
+}
+
+.mirage button {
+    background-color: rgb(236, 236, 222);
+    border: none;
+    border-radius: 30%;
+    box-shadow: 0 4px 7px rgba(0, 0, 0, 0.4);
+    color: rgb(252, 217, 157);
+    cursor: pointer;
+    font-weight: bold;
+    margin-right: 10px;
+    margin-bottom: 20px;
+    padding: 10px;
+    transition: background-color 0.7s ease, transform 1s ease;
+}
+
+.mirage button.recording {
+    background-color: rgb(169, 56, 56);
+    transition: background-color 0.7s ease;
+}
+
+.mirage button .icon {
+    font-size: 15px;
+}
+
+.mirage button:hover {
+    transform: scale(1.1);
 }
 
 .typhoon input {
