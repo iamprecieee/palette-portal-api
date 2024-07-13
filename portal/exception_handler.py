@@ -1,9 +1,16 @@
+from django.db import IntegrityError
+from django.core.exceptions import ValidationError as CoreValidationError
+
 from rest_framework.views import exception_handler
-from rest_framework.exceptions import Throttled, ValidationError, AuthenticationFailed, NotAuthenticated
+from rest_framework.exceptions import (
+    Throttled,
+    ValidationError,
+    AuthenticationFailed,
+    NotAuthenticated,
+)
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from rest_framework.response import Response
 from rest_framework import status
-from django.db import IntegrityError
 
 
 # Overriding REST framework's exception handler to customize error response data
@@ -12,7 +19,12 @@ def palette_exception_handler(exc, context):
 
     if isinstance(exc, Throttled):
         response.data = exc.detail
-        
+
+    if isinstance(exc, ValueError):
+        response = Response(
+            exc.args[0].capitalize(), status=status.HTTP_400_BAD_REQUEST
+        )
+
     if isinstance(exc, (AuthenticationFailed, NotAuthenticated)):
         try:
             if exc.detail and exc.detail["code"] == "user_not_found":
@@ -21,14 +33,17 @@ def palette_exception_handler(exc, context):
                 response.data = exc.detail["messages"][0]["message"]
         except:
             response.data = exc.detail
-        
+
     if isinstance(exc, TokenError):
         response = Response(exc.args)
         # response.data = InvalidToken(TokenError.args)
-        
+
     if isinstance(exc, IntegrityError):
         response = Response(exc.args[0].capitalize(), status=status.HTTP_409_CONFLICT)
-        
+
+    if isinstance(exc, CoreValidationError):
+        response = Response(str(exc).strip("[]'"), status=status.HTTP_400_BAD_REQUEST)
+
     if isinstance(exc, PermissionError):
         response = Response(exc.args[0], status=status.HTTP_403_FORBIDDEN)
 

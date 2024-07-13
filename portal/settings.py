@@ -17,7 +17,7 @@ from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-dotenv_path = BASE_DIR/".env"
+dotenv_path = BASE_DIR / ".env"
 load_dotenv(dotenv_path)
 
 
@@ -30,19 +30,18 @@ SECRET_KEY = "django-insecure-iz2w*6h2+&ylo3e%@$2#yg1b9+gt)e7vs$404&92+d46k#+snv
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = [] if DEBUG else ["*"] # Edit this depending on your production setup
+ALLOWED_HOSTS = [] if DEBUG else ["*"]  # Edit this depending on your production setup
 
 
 # Application definitions
 INSTALLED_APPS = [
-    "daphne",
+    # "daphne",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    
     # Thirdparty apps
     "corsheaders",
     "rest_framework",
@@ -51,7 +50,6 @@ INSTALLED_APPS = [
     "knox",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
-    
     # In-project apps
     "palette.apps.PaletteConfig",
     "user.apps.UserConfig",
@@ -60,7 +58,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
-    
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -69,8 +66,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    
-    "user.middleware.JWTBlacklistMiddleware", # Checks for blacklisted access tokens
+    "user.middleware.JWTBlacklistMiddleware",  # Checks for blacklisted access tokens
 ]
 
 ROOT_URLCONF = "portal.urls"
@@ -92,7 +88,9 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "portal.wsgi.application"
-ASGI_APPLICATION = "portal.asgi.application" # Used to locate routing configuration by channels
+ASGI_APPLICATION = (
+    "portal.asgi.application"  # Used to locate routing configuration by channels
+)
 
 
 # Database
@@ -108,18 +106,18 @@ if DEBUG:
 
 else:
     DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("DB_NAME"),
-        "HOST": os.getenv("DB_HOST"),
-        "USER": os.getenv("DB_USER"),
-        "PASSWORD": os.getenv("DB_PASSWORD"),
-        "PORT": int(os.getenv("DB_PORT")),
-        "OPTIONS": {
-            "sslmode": "require",
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("DB_NAME"),
+            "HOST": os.getenv("DB_HOST"),
+            "USER": os.getenv("DB_USER"),
+            "PASSWORD": os.getenv("DB_PASSWORD"),
+            "PORT": int(os.getenv("DB_PORT")),
+            "OPTIONS": {
+                # "sslmode": "require",
+            },
         }
     }
-}
 
 
 # Password validation
@@ -157,13 +155,14 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
 STATIC_URL = "static/"
-STATIC_ROOT = BASE_DIR/"staticfiles"
+STATICFILES_DIRS = [BASE_DIR / "static"]  # For development
+STATIC_ROOT = BASE_DIR / "staticfiles"  # For production
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 
 # Media files (Images)
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR/"media"
+MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_FILE_STORAGE = "cloudinary_storage.storage.MediaCloudinaryStorage"
 
 
@@ -179,15 +178,16 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
         "rest_framework.throttling.UserRateThrottle",
-        
     ],
     "DEFAULT_THROTTLE_RATES": {
         "anon": "10/min",
         "user": "20/min",
     },
     "EXCEPTION_HANDLER": "portal.exception_handler.palette_exception_handler",
-    "DEFAULT_AUTHENTICATION_CLASSES": ["user.models.PaletteTokenAuthentication",
-                                       "rest_framework_simplejwt.authentication.JWTAuthentication"],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "user.models.PaletteTokenAuthentication",
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
 }
 
 
@@ -195,12 +195,12 @@ REST_FRAMEWORK = {
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": os.getenv("REDIS_URL")
+        "LOCATION": os.getenv("REDIS_URL"),
     },
     "session_cache": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": os.getenv("SESSION_CACHE_REDIS_URL")
-    }
+        "LOCATION": os.getenv("SESSION_CACHE_REDIS_URL"),
+    },
 }
 
 
@@ -214,8 +214,8 @@ CLOUDINARY_STORAGE = {
 
 
 # Session settings (using a cache-db backend)
-CART_SESSION_ID = "cart" #For cart
-REFRESH_SESSION_ID = "refresh" # For refresh token
+CART_SESSION_ID = "cart"  # For cart
+REFRESH_SESSION_ID = "refresh"  # For refresh token
 SESSION_CACHE_ALIAS = "session_cache"
 SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
 
@@ -240,7 +240,7 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
     "BLACKLIST_AFTER_ROTATION": True,
     "TOKEN_REFRESH_SERIALIZER": "user.serializers.RefreshSerializer",
-    "ACCESS_TOKEN_LIFETIME": timedelta(hours=36)
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=36),
 }
 
 # Channel layer settings
@@ -257,6 +257,6 @@ else:
             "BACKEND": "channels_redis.core.RedisChannelLayer",
             "CONFIG": {
                 "hosts": [os.getenv("CHAT_REDIS_URL")],
-            }
+            },
         }
     }

@@ -1,6 +1,6 @@
 from django.utils.dateformat import format
 
-from .models import Message
+from .models import Message, Chat
 from rest_framework.serializers import ModelSerializer, SerializerMethodField
 
 
@@ -36,3 +36,16 @@ class MessageSerializer(ModelSerializer):
     
     def get_content(self, obj):
         return obj.audio_content if obj.get_message_type_display() == "Audio" else obj.content
+
+
+class ChatSerializer(ModelSerializer):
+    class Meta:
+        model = Chat
+        fields = [
+            "id",
+            "artist",
+            "collector",
+            "created",
+        ]
+        read_only_fields = ["id", "created"]
+        

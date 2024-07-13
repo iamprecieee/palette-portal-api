@@ -1,0 +1,83 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chat Room</title>
+    <link rel="stylesheet" href="{% static 'css/chat.css' %}">
+  </head>
+  <body>
+    <div class="siphon">
+        <!-- User Status and Header -->
+        <div class="sonoma">
+            <div {% if other_user_status == True %} class="online" {% else %} class="status" {% endif %}>
+                <!-- Show online(green) and offline(red) status -->
+            </div>
+            <div class="mazda" id="chat-header">
+                {{ other_username }} <!-- Username of other user -->
+            </div>
+        </div>
+
+        <!-- Chat Log -->
+        <div class="chimera" id="chat-log">
+            {% for message in messages %}
+                <div {% if message.sender == username %}class="my-bubble"{% else %}class="your-bubble"{% endif %} id="message-{{ message.id }}">
+                    <div {% if message.message_type == "AUD" %}class="audio-message"{% endif %}>
+                        {% if message.is_reply == True %}
+                            <!-- Displays the sender/content for replied messages -->
+                            <div class="reply" data-reply-to="{{ message.previous_message_id }}">
+                                <span class="broker">{{ message.previous_sender }}</span>
+                                <span class="bank">
+                                    {{ message.previous_content }}
+                                    {% if message.previous_content == "AUDIO" %}
+                                        &#9658;
+                                    {% endif %}
+                                </span>
+                                <p hidden>{{ message.previous_message_id }}</p>
+                            </div>
+                        {% endif %}
+                        <!-- Displays the sender/content for regular messages/replies -->
+                        {% if message.message_type == "AUD" %}
+                            <div class="purple">
+                                <button class="play-button">&#9658;</button>
+                                <div class="progress-bar">
+                                    <div class="progress"></div>
+                                </div>
+                                <span class="audio-duration">00:00</span>
+                            </div>
+                            <audio hidden>
+                                <source src="{{ message.content }}" type="audio/webm">
+                            </audio>
+                        {% else %}
+                            <span>{{ message.content }}</span><br>
+                        {% endif %}
+                        <small>{{ message.time }}</small>
+                        <p id="pentagon" hidden>{{ message.id }}</p>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- Message Input and Buttons -->
+        <div class="mirage">
+            <button id="record-stop">
+                <span class="icon">🎤</span>
+            </button>
+            <input type="text" name="" id="message-input">
+        </div>
+        <div class="typhoon">
+            <input type="submit" value="SEND" id="submit">
+        </div>
+    </div>
+
+    <!-- JSON Script Tags for Context Data -->
+    {{ chat_id|json_script:"chat-id" }} 
+    {{ username|json_script:"username" }}
+    {{ other_username|json_script:"other_username" }}
+    {{ other_user_status|json_script:"other_user_status" }}
+
+    <script src="{% static 'js/chat.js' %}"></script>
+
+</body>
+</html>

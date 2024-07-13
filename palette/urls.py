@@ -19,5 +19,5 @@ urlpatterns = [
     path("artwork/", ArtworkList.as_view(), name="artwork-list"),
     path("artwork/<slug:slug>/", ArtworkDetail.as_view(), name="artwork-detail"),
     path("cart/", CartList.as_view(), name="cart-list"),
-    path("cart/<uuid:id>/", CartDetail.as_view(), name="cart-detail"),
+    path("cart/<str:artwork_id>/", CartDetail.as_view(), name="cart-detail"),
 ]

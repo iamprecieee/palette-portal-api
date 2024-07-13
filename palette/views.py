@@ -15,6 +15,7 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser
+from uuid import UUID
 
 
 class GenreList(APIView):
@@ -221,8 +222,9 @@ class CartDetail(APIView):
         if not artwork:
             return Response("Artwork not found.", status=status.HTTP_404_NOT_FOUND)
 
-        serializer = self.serializer_class(data=request.data,
-                                           context={"request": request, "artwork": artwork})
+        serializer = self.serializer_class(
+            data=request.data, context={"request": request, "artwork": artwork}
+        )
         if serializer.is_valid(raise_exception=True):
             cart_data = serializer.save()
             return Response(cart_data, status=status.HTTP_201_CREATED)
@@ -233,15 +235,19 @@ class CartDetail(APIView):
         if not artwork:
             return Response("Artwork not found.", status=status.HTTP_404_NOT_FOUND)
 
-        serializer = self.serializer_class(artwork, data=request.data, context={"request": request})
+        serializer = self.serializer_class(
+            artwork, data=request.data, context={"request": request}
+        )
         if serializer.is_valid(raise_exception=True):
             cart_list = serializer.save()
             return Response(cart_list, status=status.HTTP_202_ACCEPTED)
 
-    def delete(self, request, id):
+    def delete(self, request, artwork_id):
+        UUID(artwork_id)
+
         # Removes artwork items from cart
         cart = Cart(request)
-        artwork = Artwork.available.filter(id=id).first()
+        artwork = Artwork.available.filter(id=artwork_id).first()
         if not artwork:
             return Response("Artwork not found.", status=status.HTTP_404_NOT_FOUND)
 

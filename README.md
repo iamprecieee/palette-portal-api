@@ -46,3 +46,5 @@
 
 - Understanding the use of django channels with websockets, and implementing a functional real-time chat between authenticated parties.
 - Adding functionality for message replies, online/offline/typing status updates.
+
+### Setup containerization with docker
