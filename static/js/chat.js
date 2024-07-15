@@ -3,12 +3,15 @@ const chatId = JSON.parse(document.getElementById("chat-id").textContent);
 const username = JSON.parse(document.getElementById("username").textContent);
 const otherUsername = JSON.parse(document.getElementById("other_username").textContent);
 const otherUserStatus = JSON.parse(document.getElementById("other_user_status").textContent);
+const isDebug = JSON.parse(document.getElementById("is_debug").textContent);
 
 // Function to establish WebSocket connection
-function connectWebSocket() {
+function connectWebSocket() { 
+    const protocol = isDebug? "ws://" : "wss://";
     const chatSocket = new WebSocket(
-        "wss://" + window.location.host + "/ws/chat/" + chatId + "/"
+        protocol + window.location.host + "/ws/chat/" + chatId + "/"
     );
+    
 
     // Actions when message is received from room group
     chatSocket.onmessage = function(e) {

@@ -76,6 +76,7 @@
     {{ username|json_script:"username" }}
     {{ other_username|json_script:"other_username" }}
     {{ other_user_status|json_script:"other_user_status" }}
+    {{ is_debug|json_script:"is_debug" }}
 
     <script src="{% static 'js/chat.js' %}"></script>
 

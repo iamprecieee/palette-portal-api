@@ -34,9 +34,9 @@
 
 - Understanding and implementing tests using django/drf test suite to ensure endpoints work as intended.
 
-### Custom Middleware
+### Custom Middleware/Context processors
 
-- Understanding and customizing django's middleware to handle manually blacklisted simple_JWT access tokens.
+- Understanding and customizing django's middleware/context processors to handle manually blacklisted simple_JWT access tokens/set necessary environmental checks.
 
 ### Token/Stateless Authentication
 

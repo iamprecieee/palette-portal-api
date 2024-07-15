@@ -6,3 +6,6 @@ migrations/
 __pycache__/
 *.pyc
 media/
+.cache/
+staticfiles/
+.bash_history

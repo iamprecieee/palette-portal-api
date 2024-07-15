@@ -51,8 +51,8 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
     # In-project apps
-    "palette.apps.PaletteConfig",
     "user.apps.UserConfig",
+    "palette.apps.PaletteConfig",
     "chat.apps.ChatConfig",
 ]
 
@@ -74,7 +74,7 @@ ROOT_URLCONF = "portal.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR/"templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -82,6 +82,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "portal.context_processors.is_debug", # Checks DEBUG mode
             ],
         },
     },
@@ -96,28 +97,27 @@ ASGI_APPLICATION = (
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-if DEBUG:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
 
-else:
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.getenv("DB_NAME"),
-            "HOST": os.getenv("DB_HOST"),
-            "USER": os.getenv("DB_USER"),
-            "PASSWORD": os.getenv("DB_PASSWORD"),
-            "PORT": int(os.getenv("DB_PORT")),
-            "OPTIONS": {
-                # "sslmode": "require",
-            },
-        }
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
+#     }
+# }
+
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("DB_NAME"),
+        "HOST": os.getenv("DB_HOST"),
+        "USER": os.getenv("DB_USER"),
+        "PASSWORD": os.getenv("DB_PASSWORD"),
+        "PORT": int(os.getenv("DB_PORT")) if os.getenv("DB_PORT") else 5432,
+        "OPTIONS": {
+            # "sslmode": "require",
+        },
     }
+}
 
 
 # Password validation
@@ -194,7 +194,7 @@ REST_FRAMEWORK = {
 # Cache settings
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "BACKEND": "django.core.cache.backends.dummy.DummyCache" if DEBUG else "django.core.cache.backends.redis.RedisCache",
         "LOCATION": os.getenv("REDIS_URL"),
     },
     "session_cache": {

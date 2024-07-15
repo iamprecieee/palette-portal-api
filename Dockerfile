@@ -23,11 +23,11 @@ COPY . .
 # This is because files are copied as root user by default
 RUN chown -R artist:palette /home/portal
 
-# Change user to non-root user "artist"
-USER artist
-
 # Install dependencies
 RUN python install_requirements.py
 
 # Collect static files
 RUN python manage.py collectstatic --no-input
+
+# Change user to non-root user "artist"
+USER artist
