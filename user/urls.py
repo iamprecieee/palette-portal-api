@@ -9,10 +9,10 @@ from .views import (
     KnoxLogoutView,
     JWTLogoutView,
     KnoxLogoutAllView,
-    ArtistProfileList,
-    CollectorProfileList,
-    ArtistProfileDetail,
-    CollectorProfileDetail,
+    ArtistProfileListView,
+    CollectorProfileListView,
+    ArtistProfileDetailView,
+    CollectorProfileDetailView,
     CronJobAction
 )
 
@@ -28,9 +28,9 @@ urlpatterns = [
     path("logout-knox/", KnoxLogoutView.as_view(), name="knox-logout"),
     path("logout-jwt/", JWTLogoutView.as_view(), name="jwt-logout"),
     path("logout-knox-all/", KnoxLogoutAllView.as_view(), name="batch-knox-logout"),
-    path("profile/artist/", ArtistProfileList.as_view(), name="artist-profile-list"),
-    path("profile/artist/<str:profile_id>/", ArtistProfileDetail.as_view(), name="artist-profile-detail"),
-    path("profile/collector/", CollectorProfileList.as_view(), name="collector-profile-list"),
-    path("profile/collector/<str:profile_id>/", CollectorProfileDetail.as_view(), name="collector-profile-detail"),
+    path("profile/artist/", ArtistProfileListView.as_view(), name="artist-profile-list"),
+    path("profile/artist/<str:profile_id>/", ArtistProfileDetailView.as_view(), name="artist-profile-detail"),
+    path("profile/collector/", CollectorProfileListView.as_view(), name="collector-profile-list"),
+    path("profile/collector/<str:profile_id>/", CollectorProfileDetailView.as_view(), name="collector-profile-detail"),
     path("cron-job/", CronJobAction.as_view(), name="cron-job"),
 ]

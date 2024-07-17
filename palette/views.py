@@ -9,18 +9,23 @@ from .serializers import (
     CartUpdateSerializer,
 )
 from .cart import Cart
+from portal.permissions import (IsAdminOrReadOnly, IsArtistOrReadOnly, IsCreatorOrReadOnly, IsCollectorOrReadOnly)
+from user.views import JWTAuthentication, PaletteTokenAuthentication
 
 from rest_framework.views import APIView
-from rest_framework.throttling import AnonRateThrottle
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser
+from rest_framework.permissions import IsAuthenticated
 from uuid import UUID
 
 
-class GenreList(APIView):
-    throttle_classes = [AnonRateThrottle]
+class GenreListView(APIView):
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
     serializer_class = GenreSerializer
+    authentication_classes = [JWTAuthentication, PaletteTokenAuthentication]
+    permission_classes = [IsAdminOrReadOnly]
 
     def get(self, request):
         """
@@ -46,9 +51,11 @@ class GenreList(APIView):
             return Response(genre_data, status=status.HTTP_201_CREATED)
 
 
-class GenreDetail(APIView):
-    throttle_classes = [AnonRateThrottle]
+class GenreDetailView(APIView):
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
     serializer_class = GenreSerializer
+    authentication_classes = [JWTAuthentication, PaletteTokenAuthentication]
+    permission_classes = [IsAdminOrReadOnly]
 
     def get(self, request, slug):
         """
@@ -62,7 +69,7 @@ class GenreDetail(APIView):
                 cache.set(f"genre_{slug}", genre)
 
         if not genre:
-            return Response("Genre not found.", status=status.HTTP_404_NOT_FOUND)
+            return Response("Genre does not exist.", status=status.HTTP_404_NOT_FOUND)
 
         data = self.serializer_class(genre).data
         return Response(data, status=status.HTTP_200_OK)
@@ -72,9 +79,12 @@ class GenreDetail(APIView):
         Updates an existing genre object.
         Also updates the cache for both genre list and corresponding genre object.
         """
-        genre = Genre.objects.filter(slug=slug).first()
+        genre = cache.get(f"genre_{slug}")
         if not genre:
-            return Response("Genre not found.", status=status.HTTP_404_NOT_FOUND)
+            genre = Genre.objects.filter(slug=slug).first()
+        
+        if not genre:
+            return Response("Genre does not exist.", status=status.HTTP_404_NOT_FOUND)
 
         serializer = self.serializer_class(genre, data=request.data, partial=True)
         if serializer.is_valid(raise_exception=True):
@@ -94,9 +104,12 @@ class GenreDetail(APIView):
         Deletes an existing genre object.
         Also deletes the cache for corresponding genre object, and updates that of genre list.
         """
-        genre = Genre.objects.filter(slug=slug).first()
+        genre = cache.get(f"genre_{slug}")
         if not genre:
-            return Response("Genre not found.", status=status.HTTP_404_NOT_FOUND)
+            genre = Genre.objects.filter(slug=slug).first()
+            
+        if not genre:
+            return Response("Genre does not exist.", status=status.HTTP_404_NOT_FOUND)
 
         with atomic():
             cache.delete(f"genre_{slug}")
@@ -108,10 +121,12 @@ class GenreDetail(APIView):
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class ArtworkList(APIView):
-    throttle_classes = [AnonRateThrottle]
+class ArtworkListView(APIView):
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
     parser_classes = [MultiPartParser]
     serializer_class = ArtworkSerializer
+    authentication_classes = [JWTAuthentication, PaletteTokenAuthentication]
+    permission_classes = [IsArtistOrReadOnly]
 
     def get(self, request):
         """
@@ -129,7 +144,7 @@ class ArtworkList(APIView):
     def post(self, request):
         # Creates a new artwork object using form-data (multi-part content)
         serializer = self.serializer_class(
-            data=request.data, context={"data": request.data}
+            data=request.data, context={"data": request.data, "user": request.user}
         )
         if serializer.is_valid(raise_exception=True):
             with atomic():
@@ -139,10 +154,12 @@ class ArtworkList(APIView):
             return Response(artwork_data, status=status.HTTP_201_CREATED)
 
 
-class ArtworkDetail(APIView):
-    throttle_classes = [AnonRateThrottle]
+class ArtworkDetailView(APIView):
+    throttle_classes = [AnonRateThrottle, UserRateThrottle]
     parser_classes = [MultiPartParser]
     serializer_class = ArtworkSerializer
+    authentication_classes = [JWTAuthentication, PaletteTokenAuthentication]
+    permission_classes = [IsCreatorOrReadOnly]
 
     def get(self, request, slug):
         """
@@ -167,9 +184,6 @@ class ArtworkDetail(APIView):
         Also updates the cache for both artwork list and corresponding artwork object.
         """
         artwork = Artwork.objects.filter(slug=slug).first()
-        if not artwork:
-            return Response("Artwork not found.", status=status.HTTP_404_NOT_FOUND)
-
         serializer = self.serializer_class(artwork, data=request.data, partial=True)
         if serializer.is_valid(raise_exception=True):
             with atomic():
@@ -189,9 +203,6 @@ class ArtworkDetail(APIView):
         Also deletes the cache for corresponding artwork object, and updates that of artwork list.
         """
         artwork = Artwork.objects.filter(slug=slug).first()
-        if not artwork:
-            return Response("Artwork not found.", status=status.HTTP_404_NOT_FOUND)
-
         with atomic():
             cache.delete(f"artwork_{slug}")
             artworks_cache = cache.get("artwork_list", [])
@@ -201,8 +212,10 @@ class ArtworkDetail(APIView):
             return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class CartList(APIView):
+class CartListView(APIView):
     throttle_classes = [AnonRateThrottle]
+    authentication_classes = [JWTAuthentication, PaletteTokenAuthentication]
+    permission_classes = [IsAuthenticated, IsCollectorOrReadOnly]
 
     def get(self, request):
         """
@@ -212,13 +225,15 @@ class CartList(APIView):
         return Response(cart, status=status.HTTP_200_OK)
 
 
-class CartDetail(APIView):
+class CartDetailView(APIView):
     throttle_classes = [AnonRateThrottle]
     serializer_class = CartUpdateSerializer
+    authentication_classes = [JWTAuthentication, PaletteTokenAuthentication]
+    permission_classes = [IsAuthenticated, IsCollectorOrReadOnly]
 
-    def post(self, request, id):
+    def post(self, request, artwork_id):
         # Increments the quantity of artwork items in cart
-        artwork = Artwork.available.filter(id=id).first()
+        artwork = Artwork.available.filter(id=artwork_id).first()
         if not artwork:
             return Response("Artwork not found.", status=status.HTTP_404_NOT_FOUND)
 

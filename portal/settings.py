@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/4.2/ref/settings/
 from pathlib import Path
 from dotenv import load_dotenv
 import os
+import sys
 from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -97,14 +98,6 @@ ASGI_APPLICATION = (
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
-
-# DATABASES = {
-#     "default": {
-#         "ENGINE": "django.db.backends.sqlite3",
-#         "NAME": BASE_DIR / "db.sqlite3",
-#     }
-# }
-
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -114,10 +107,16 @@ DATABASES = {
         "PASSWORD": os.getenv("DB_PASSWORD"),
         "PORT": int(os.getenv("DB_PORT")) if os.getenv("DB_PORT") else 5432,
         "OPTIONS": {
-            # "sslmode": "require",
-        },
+            "sslmode": "require",
+        } if str(os.getenv("DB_HOST")).endswith(".com") else {},
     }
 }
+
+if "test" in sys.argv:
+    DATABASES["default"] = {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
 
 
 # Password validation
@@ -194,7 +193,7 @@ REST_FRAMEWORK = {
 # Cache settings
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.dummy.DummyCache" if DEBUG else "django.core.cache.backends.redis.RedisCache",
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
         "LOCATION": os.getenv("REDIS_URL"),
     },
     "session_cache": {
@@ -245,18 +244,11 @@ SIMPLE_JWT = {
 
 # Channel layer settings
 
-if DEBUG:
-    CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels.layers.InMemoryChannelLayer",
-        }
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [os.getenv("CHAT_REDIS_URL")],
+        },
     }
-else:
-    CHANNEL_LAYERS = {
-        "default": {
-            "BACKEND": "channels_redis.core.RedisChannelLayer",
-            "CONFIG": {
-                "hosts": [os.getenv("CHAT_REDIS_URL")],
-            },
-        }
-    }
+}

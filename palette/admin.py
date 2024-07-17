@@ -21,7 +21,6 @@ class ArtworkAdmin(ModelAdmin):
         "artist",
         "height",
         "width",
-        "instagram",
         "is_available",
         "created",
         "updated",

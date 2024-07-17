@@ -1,12 +1,12 @@
 from django.urls import path
 
 from .views import (
-    GenreList,
-    ArtworkList,
-    GenreDetail,
-    ArtworkDetail,
-    CartList,
-    CartDetail,
+    GenreListView,
+    ArtworkListView,
+    GenreDetailView,
+    ArtworkDetailView,
+    CartListView,
+    CartDetailView,
 )
 
 
@@ -14,10 +14,10 @@ app_name = "palette"
 
 
 urlpatterns = [
-    path("genre/", GenreList.as_view(), name="genre-list"),
-    path("genre/<slug:slug>/", GenreDetail.as_view(), name="genre-detail"),
-    path("artwork/", ArtworkList.as_view(), name="artwork-list"),
-    path("artwork/<slug:slug>/", ArtworkDetail.as_view(), name="artwork-detail"),
-    path("cart/", CartList.as_view(), name="cart-list"),
-    path("cart/<str:artwork_id>/", CartDetail.as_view(), name="cart-detail"),
+    path("genre/", GenreListView.as_view(), name="genre-list"),
+    path("genre/<slug:slug>/", GenreDetailView.as_view(), name="genre-detail"),
+    path("artwork/", ArtworkListView.as_view(), name="artwork-list"),
+    path("artwork/<slug:slug>/", ArtworkDetailView.as_view(), name="artwork-detail"),
+    path("cart/", CartListView.as_view(), name="cart-list"),
+    path("cart/<str:artwork_id>/", CartDetailView.as_view(), name="cart-detail"),
 ]

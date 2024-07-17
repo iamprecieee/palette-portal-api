@@ -141,11 +141,6 @@ class ArtistProfileSerializer(ModelSerializer):
         return profile
 
     def update(self, instance, validated_data):
-        profile_id = self.context["id"]
-        user = self.context["user"].id
-        if not Artist.objects.filter(id=profile_id, user=user):
-            raise PermissionError("You are not allowed to operate on another user's profile.")
-        
         return super().update(instance, validated_data)
 
 
@@ -172,10 +167,4 @@ class CollectorProfileSerializer(ModelSerializer):
         return profile
 
     def update(self, instance, validated_data):
-        profile_id = self.context["id"]
-        user = self.context["user"].id
-        if not Collector.objects.filter(id=profile_id, user=user):
-            raise PermissionError("You are not allowed to operate on another user's profile.")
-        
-
         return super().update(instance, validated_data)

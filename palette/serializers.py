@@ -1,7 +1,7 @@
 from django.utils.text import slugify
 from rest_framework.fields import empty
 
-from .models import Genre, Artwork
+from .models import Genre, Artwork, Artist
 
 from rest_framework.serializers import (
     ModelSerializer,
@@ -34,6 +34,7 @@ class GenreSerializer(ModelSerializer):
 
 
 class ArtworkSerializer(ModelSerializer):
+    artist = SerializerMethodField()
     genre = SerializerMethodField()
     genres = ListField(
         write_only=True,
@@ -44,7 +45,10 @@ class ArtworkSerializer(ModelSerializer):
     class Meta:
         model = Artwork
         fields = "__all__"
-        read_only_fields = ["id", "created", "updated"]
+        read_only_fields = ["id", "artist", "created", "updated"]
+        
+    def get_artist(self, obj):
+        return obj.artist.user.username
 
     def get_genre(self, obj):
         genres = obj.genre.all()
@@ -54,6 +58,10 @@ class ArtworkSerializer(ModelSerializer):
         validated_data["slug"] = slugify(validated_data["name"])
         if "is_available" not in self.context["data"]:
             validated_data["is_available"] = True
+            
+        user = self.context["user"]
+        artist = Artist.objects.filter(user=user).first()
+        validated_data["artist"] = artist
             
         genre_data = validated_data.pop("genres", [])
         artwork = Artwork.objects.create(**validated_data)

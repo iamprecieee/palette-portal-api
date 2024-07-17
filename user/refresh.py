@@ -27,11 +27,11 @@ class SessionRefreshToken:
         self.save()
 
     def token(self):
-        return self.refresh["refresh"]
+        return self.refresh.get("refresh")
 
     # Method for blacklisting refresh token to be removed from session
-    def remove(self, modify=False):
-        if self.session["refresh"]:
+    def remove(self):
+        if self.refresh.get("refresh"):
             refresh_token = self.token()
             try:
                 refresh = RefreshToken(refresh_token)

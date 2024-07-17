@@ -1,5 +1,6 @@
 from django.db.transaction import atomic
 from django.contrib.auth.signals import user_logged_out
+from django.core.cache import cache
 
 from .serializers import (
     User,
@@ -13,6 +14,7 @@ from .serializers import (
 )
 from .models import PaletteTokenAuthentication, JWTTokenBlacklist
 from .refresh import SessionRefreshToken
+from portal.permissions import IsCurrentOwnerOrReadOnly
 
 from rest_framework.views import APIView
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
@@ -156,15 +158,20 @@ class KnoxLogoutAllView(LogoutAllView):
         return Response("Batch logout successful.", status=status.HTTP_200_OK)
 
 
-class ArtistProfileList(APIView):
+class ArtistProfileListView(APIView):
     throttle_classes = [UserRateThrottle]
     authentication_classes = [PaletteTokenAuthentication, JWTAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = ArtistProfileSerializer
 
     def get(self, request):
-        artists = Artist.objects.all()
+        artists = cache.get("artist_list")
+        if not artists or len(artists) == 0:
+            artists = Artist.objects.all()
+            cache.set("artist_list", artists)
+            
         artist_data = self.serializer_class(artists, many=True).data
+        
         return Response(artist_data, status=status.HTTP_200_OK)
 
     def post(self, request):
@@ -176,81 +183,65 @@ class ArtistProfileList(APIView):
                 new_profile = serializer.save()
 
             artist_data = self.serializer_class(new_profile).data
-
+            
             return Response(artist_data, status=status.HTTP_201_CREATED)
 
 
-class ArtistProfileDetail(APIView):
+class ArtistProfileDetailView(APIView):
     throttle_classes = [UserRateThrottle]
     authentication_classes = [PaletteTokenAuthentication, JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCurrentOwnerOrReadOnly]
     serializer_class = ArtistProfileSerializer
 
     def get(self, request, profile_id):
-        UUID(profile_id)
-
         artist = Artist.objects.filter(id=profile_id).first()
-        if not artist:
-            return Response(
-                "Artist profile does not exist.", status=status.HTTP_404_NOT_FOUND
-            )
-
         artist_data = self.serializer_class(artist).data
 
         return Response(artist_data, status=status.HTTP_200_OK)
 
     def put(self, request, profile_id):
-        UUID(profile_id)
-
         artist = Artist.objects.filter(id=profile_id).first()
-        if not artist:
-            return Response(
-                "Artist profile does not exist.", status=status.HTTP_404_NOT_FOUND
-            )
-
         serializer = self.serializer_class(
             artist,
             data=request.data,
             partial=True,
-            context={"user": request.user, "id": profile_id},
         )
         if serializer.is_valid(raise_exception=True):
             with atomic():
                 profile_data = serializer.save()
-                artist_data = self.serializer_class(profile_data).data
-
+                artists_cache = cache.get("artist_list", [])
+                artists_cache = [i for i in artists_cache if i.id != profile_id]
+                artists_cache.append(artist)
+                cache.set("artist_list", artists_cache)
+                
+            artist_data = self.serializer_class(profile_data).data
             return Response(artist_data, status=status.HTTP_202_ACCEPTED)
 
     def delete(self, request, profile_id):
-        UUID(profile_id)
-
         artist = Artist.objects.filter(id=profile_id).first()
-        if not artist:
-            return Response(
-                "Artist profile does not exist.", status=status.HTTP_404_NOT_FOUND
-            )
-
-        user = request.user.id
-        if not Artist.objects.filter(id=profile_id, user=user):
-            raise PermissionError(
-                "You are not allowed to operate on another user's profile."
-            )
-
         with atomic():
+            artists_cache = cache.get("artist_list", [])
+            artists_cache = [i for i in artists_cache if i.id != profile_id]
+            cache.set("artist_list", artists_cache)
             artist.delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class CollectorProfileList(APIView):
+class CollectorProfileListView(APIView):
     throttle_classes = [UserRateThrottle]
     authentication_classes = [PaletteTokenAuthentication, JWTAuthentication]
     permission_classes = [IsAuthenticated]
     serializer_class = CollectorProfileSerializer
 
     def get(self, request):
-        collectors = Collector.objects.all()
+        collectors = cache.get("collector_list")
+        if not collectors  or len(collectors) == 0:
+            collectors = Collector.objects.all()
+            cache.set("collector_list", collectors)
+            
         collectors_data = self.serializer_class(collectors, many=True).data
+        
         return Response(collectors_data, status=status.HTTP_200_OK)
 
     def post(self, request):
@@ -266,63 +257,42 @@ class CollectorProfileList(APIView):
             return Response(collector_data, status=status.HTTP_201_CREATED)
 
 
-class CollectorProfileDetail(APIView):
+class CollectorProfileDetailView(APIView):
     throttle_classes = [UserRateThrottle]
     authentication_classes = [PaletteTokenAuthentication, JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsCurrentOwnerOrReadOnly]
     serializer_class = CollectorProfileSerializer
 
     def get(self, request, profile_id):
-        UUID(profile_id)
-
         collector = Collector.objects.filter(id=profile_id).first()
-        if not collector:
-            return Response(
-                "Collector profile does not exist.", status=status.HTTP_404_NOT_FOUND
-            )
-
         collector_data = self.serializer_class(collector).data
 
         return Response(collector_data, status=status.HTTP_200_OK)
 
     def put(self, request, profile_id):
-        UUID(profile_id)
-
         collector = Collector.objects.filter(id=profile_id).first()
-        if not collector:
-            return Response(
-                "Collector profile does not exist.", status=status.HTTP_404_NOT_FOUND
-            )
-
         serializer = self.serializer_class(
             collector,
             data=request.data,
             partial=True,
-            context={"user": request.user, "id": profile_id},
         )
         if serializer.is_valid(raise_exception=True):
             with atomic():
                 profile_data = serializer.save()
-                collector_data = self.serializer_class(profile_data).data
-
+                collectors_cache = cache.get("collector_list", [])
+                collectors_cache = [i for i in collectors_cache if i.id != profile_id]
+                collectors_cache.append(collector)
+                cache.set("collector_list", collectors_cache)
+                
+            collector_data = self.serializer_class(profile_data).data
             return Response(collector_data, status=status.HTTP_202_ACCEPTED)
 
     def delete(self, request, profile_id):
-        UUID(profile_id)
-
         collector = Collector.objects.filter(id=profile_id).first()
-        if not collector:
-            return Response(
-                "Collector profile does not exist.", status=status.HTTP_404_NOT_FOUND
-            )
-
-        user = request.user.id
-        if not Collector.objects.filter(id=profile_id, user=user):
-            raise PermissionError(
-                "You are not allowed to operate on another user's profile."
-            )
-
         with atomic():
+            collectors_cache = cache.get("collector_list", [])
+            collectors_cache = [i for i in collectors_cache if i.id != profile_id]
+            cache.set("collector_list", collectors_cache)
             collector.delete()
 
         return Response(status=status.HTTP_204_NO_CONTENT)

@@ -14,6 +14,7 @@ from user.views import (
 )
 from .models import Chat, Message
 from .serializers import MessageSerializer, ChatSerializer
+from portal.permissions import IsChatArtistOrCollector
 
 from uuid import UUID
 
@@ -21,7 +22,7 @@ from uuid import UUID
 class ChatRoomView(APIView):
     throttle_classes = [UserRateThrottle]
     authentication_classes = [PaletteTokenAuthentication, JWTAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsChatArtistOrCollector]
     serializer_class = MessageSerializer
 
     def get(self, request, chat_id):
@@ -29,25 +30,14 @@ class ChatRoomView(APIView):
         Checks if `request.user` is part of the chat, and retrieves the other chat member.
         Sends the latest 20 messages in context, including the username values.
         """
-        UUID(chat_id)
-
         chat = Chat.objects.filter(id=chat_id).first()
-        if not chat:
-            return Response("Chat does not exist.", status=status.HTTP_404_NOT_FOUND)
-
         artist = chat.artist.user
         collector = chat.collector.user
         user = request.user
-        if not user in (artist, collector):
-            return Response(
-                "You are not part of this chat.", status=status.HTTP_401_UNAUTHORIZED
-            )
 
         # Retrieve object and online/offline status for other user
         other_user = artist if request.user == collector else collector
-        other_user_status = (
-            chat.is_artist_online if other_user == artist else chat.is_collector_online
-        )
+        other_user_status = chat.is_artist_online if other_user == artist else chat.is_collector_online
 
         messages = Message.objects.filter(chat=chat)[:30]
 
@@ -73,8 +63,6 @@ class ChatList(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, other_user_id):
-        UUID(other_user_id)
-
         current_user = request.user
         other_user = User.objects.filter(id=other_user_id).first()
         if not other_user:

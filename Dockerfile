@@ -16,15 +16,20 @@ RUN mkdir /home/portal && chown -R artist:palette /home/portal
 # Set working directory
 WORKDIR /home/portal
 
+# Copy requirements.txt and installer file to the container
+# Doing these before copying other files/dirs to cache the requirements for subsequent builds
+COPY ./requirements.txt ./requirements.txt
+COPY ./install_requirements.py ./install_requirements.py
+
+# Install dependencies
+RUN python install_requirements.py
+
 # Copy the current project directory's contents into the container at "/home/portal"
 COPY . .
 
 # Ensure all files are owned by the new user "artist"
 # This is because files are copied as root user by default
 RUN chown -R artist:palette /home/portal
-
-# Install dependencies
-RUN python install_requirements.py
 
 # Collect static files
 RUN python manage.py collectstatic --no-input

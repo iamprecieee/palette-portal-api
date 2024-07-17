@@ -12,8 +12,12 @@ from django.db.models import (
     DecimalField,
     BooleanField,
     ManyToManyField,
+    ForeignKey,
+    CASCADE,
 )
 from django.db.models.manager import Manager
+
+from user.models import Artist
 
 from uuid import uuid4
 from cloudinary.uploader import destroy
@@ -47,11 +51,10 @@ class Artwork(Model):
     slug = SlugField(max_length=250, blank=True)
     description = TextField(blank=True)
     image = ImageField(upload_to="images/")
-    artist = CharField(max_length=250)
+    artist = ForeignKey(Artist, related_name="artist_artworks", on_delete=CASCADE)
     height = PositiveIntegerField(blank=True, null=True)
     width = PositiveIntegerField(blank=True, null=True)
     price = DecimalField(decimal_places=2, max_digits=7, blank=True, null=True)
-    instagram = URLField(max_length=255, blank=True)
     genre = ManyToManyField(Genre, related_name="artworks", db_index=True)
     is_available = BooleanField(default=True)
     created = DateTimeField(auto_now_add=True)

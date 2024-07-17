@@ -7,6 +7,8 @@ from rest_framework.exceptions import (
     ValidationError,
     AuthenticationFailed,
     NotAuthenticated,
+    PermissionDenied,
+    NotFound,
 )
 from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 from rest_framework.response import Response
@@ -17,7 +19,7 @@ from rest_framework import status
 def palette_exception_handler(exc, context):
     response = exception_handler(exc, context)
 
-    if isinstance(exc, Throttled):
+    if isinstance(exc, (Throttled, NotFound)):
         response.data = exc.detail
 
     if isinstance(exc, ValueError):
@@ -25,9 +27,11 @@ def palette_exception_handler(exc, context):
             exc.args[0].capitalize(), status=status.HTTP_400_BAD_REQUEST
         )
 
-    if isinstance(exc, (AuthenticationFailed, NotAuthenticated)):
+    if isinstance(exc, (AuthenticationFailed, NotAuthenticated, PermissionDenied)):
         try:
             if exc.detail and exc.detail["code"] == "user_not_found":
+                response.data = exc.detail["detail"]
+            elif exc.detail and exc.detail["code"] == "permission_denied":
                 response.data = exc.detail["detail"]
             else:
                 response.data = exc.detail["messages"][0]["message"]
