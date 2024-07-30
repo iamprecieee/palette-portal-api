@@ -19,13 +19,20 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 
+from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+
 urlpatterns = [
     path("admin/", admin.site.urls),
     
     # Using namespace versioning
-    path("v1/palette/", include("palette.urls", namespace="v1")),
-    path("v1/user/", include("user.urls", namespace="user")),
-    path("v1/chat/", include("chat.urls", namespace="chat")),
+    path("api/v1/palette/", include("palette.urls", namespace="palette_v1")),
+    path("api/v1/user/", include("user.urls", namespace="user_v1")),
+    path("api/v1/chat/", include("chat.urls", namespace="chat_v1")),
+    
+    # Schema and documentation
+    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
+    path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
 ]
 
 if settings.DEBUG:

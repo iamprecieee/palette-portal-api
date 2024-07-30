@@ -11,14 +11,23 @@ from .serializers import (
 from .cart import Cart
 from portal.permissions import (IsAdminOrReadOnly, IsArtistOrReadOnly, IsCreatorOrReadOnly, IsCollectorOrReadOnly)
 from user.views import JWTAuthentication, PaletteTokenAuthentication
+from .tasks import update_palette_cache_details
 
 from rest_framework.views import APIView
 from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.pagination import CursorPagination
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from uuid import UUID
+import pickle
+from drf_spectacular.utils import extend_schema
+
+
+class PalettePagination(CursorPagination):
+    page_size = 15
+    ordering = "-created"
 
 
 class GenreListView(APIView):
@@ -26,20 +35,33 @@ class GenreListView(APIView):
     serializer_class = GenreSerializer
     authentication_classes = [JWTAuthentication, PaletteTokenAuthentication]
     permission_classes = [IsAdminOrReadOnly]
+    pagination_class = PalettePagination
 
+    @extend_schema(
+        operation_id="v1_genre_list_retrieve",
+        tags=["genre_v1"],
+    )
     def get(self, request):
         """
         Retrieves an existing cached list of all existing genres.
         If none exists, retrieves an caches a non-cached list.
         """
-        genres = cache.get("genre_list")
-        if not genres or len(genres) == 0:
+        cached_genres = cache.get("genre_list")
+        if cached_genres is not None:
+            genres = pickle.loads(cached_genres)
+        else:
             genres = Genre.objects.all()
-            cache.set("genre_list", genres)
+            cache.set("genre_list", pickle.dumps(genres))
+            
+        paginator = self.pagination_class()
+        paginated_genres = paginator.paginate_queryset(genres, request, view=self)
+        genre_data = self.serializer_class(paginated_genres, many=True).data
+        return paginator.get_paginated_response(genre_data)
 
-        data = self.serializer_class(genres, many=True).data
-        return Response(data, status=status.HTTP_200_OK)
-
+    @extend_schema(
+        operation_id="v1_genre_create",
+        tags=["genre_v1"],
+    )
     def post(self, request):
         # Creates a new genre object
         serializer = self.serializer_class(data=request.data)
@@ -57,67 +79,75 @@ class GenreDetailView(APIView):
     authentication_classes = [JWTAuthentication, PaletteTokenAuthentication]
     permission_classes = [IsAdminOrReadOnly]
 
+    @extend_schema(
+        operation_id="v1_genre_retrieve",
+        tags=["genre_v1"],
+    )
     def get(self, request, slug):
         """
         Retrieves an existing cached genre object.
         If none exists, retrieves an caches an non-cached object.
         """
-        genre = cache.get(f"genre_{slug}")
-        if not genre:
+        cached_genre = cache.get(f"genre_{slug}")
+        if cached_genre is not None:
+            genre = pickle.loads(cached_genre)
+        else:
             genre = Genre.objects.filter(slug=slug).first()
             if genre:
-                cache.set(f"genre_{slug}", genre)
-
-        if not genre:
-            return Response("Genre does not exist.", status=status.HTTP_404_NOT_FOUND)
+                update_palette_cache_details.delay(slug, "genre")
+            else:
+                return Response("Genre does not exist.", status=status.HTTP_404_NOT_FOUND)
 
         data = self.serializer_class(genre).data
         return Response(data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        operation_id="v1_genre_update",
+        tags=["genre_v1"],
+    )
     def put(self, request, slug):
         """
         Updates an existing genre object.
         Also updates the cache for both genre list and corresponding genre object.
         """
-        genre = cache.get(f"genre_{slug}")
-        if not genre:
+        cached_genre = cache.get(f"genre_{slug}")
+        if cached_genre is not None:
+            genre = pickle.loads(cached_genre)
+        else:
             genre = Genre.objects.filter(slug=slug).first()
-        
-        if not genre:
-            return Response("Genre does not exist.", status=status.HTTP_404_NOT_FOUND)
+            if not genre:
+                return Response("Genre does not exist.", status=status.HTTP_404_NOT_FOUND)
 
         serializer = self.serializer_class(genre, data=request.data, partial=True)
         if serializer.is_valid(raise_exception=True):
             with atomic():
                 genre = serializer.save()
-                cache.set(f"genre_{slug}", genre)
-                genres_cache = cache.get("genre_list", [])
-                genres_cache = [i for i in genres_cache if i.slug != slug]
-                genres_cache.append(genre)
-                cache.set("genre_list", genres_cache)
-
+                
             genre_data = self.serializer_class(genre).data
+            update_palette_cache_details.delay(genre_data["slug"], "genre")
             return Response(genre_data, status=status.HTTP_202_ACCEPTED)
 
+    @extend_schema(
+        operation_id="v1_genre_delete",
+        tags=["genre_v1"],
+    )
     def delete(self, request, slug):
         """
         Deletes an existing genre object.
         Also deletes the cache for corresponding genre object, and updates that of genre list.
         """
-        genre = cache.get(f"genre_{slug}")
-        if not genre:
+        cached_genre = cache.get(f"genre_{slug}")
+        if cached_genre is not None:
+            genre = pickle.loads(cached_genre)
+        else:
             genre = Genre.objects.filter(slug=slug).first()
-            
-        if not genre:
-            return Response("Genre does not exist.", status=status.HTTP_404_NOT_FOUND)
+            if not genre:
+                return Response("Genre does not exist.", status=status.HTTP_404_NOT_FOUND)
 
         with atomic():
-            cache.delete(f"genre_{slug}")
-            genres_cache = cache.get("genre_list", [])
-            genres_cache = [i for i in genres_cache if i.slug != slug]
-            cache.set("genre_list", genres_cache)
             genre.delete()
 
+        update_palette_cache_details.delay(slug, "genre", is_delete=True)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -127,20 +157,33 @@ class ArtworkListView(APIView):
     serializer_class = ArtworkSerializer
     authentication_classes = [JWTAuthentication, PaletteTokenAuthentication]
     permission_classes = [IsArtistOrReadOnly]
+    pagination_class = PalettePagination
 
+    @extend_schema(
+        operation_id="v1_artwork_list_retrieve",
+        tags=["artwork_v1"],
+    )
     def get(self, request):
         """
         Retrieves an existing cached list of all existing artworks.
         If none exists, retrieves an caches a non-cached list.
         """
-        artworks = cache.get("artwork_list")
-        if not artworks or len(artworks) == 0:
-            artworks = Artwork.available.all()
-            cache.set("artwork_list", artworks)
+        cached_artworks = cache.get("artwork_list")
+        if cached_artworks is not None:
+            artworks = pickle.loads(cached_artworks)
+        else:
+            artworks = Artwork.objects.all()
+            cache.set("artwork_list", pickle.dumps(artworks))
+            
+        paginator = self.pagination_class()
+        paginated_artworks = paginator.paginate_queryset(artworks, request, view=self)
+        artwork_data = self.serializer_class(paginated_artworks, many=True).data
+        return paginator.get_paginated_response(artwork_data)
 
-        data = self.serializer_class(artworks, many=True).data
-        return Response(data, status=status.HTTP_200_OK)
-
+    @extend_schema(
+        operation_id="v1_artwork_create",
+        tags=["artwork_v1"],
+    )
     def post(self, request):
         # Creates a new artwork object using form-data (multi-part content)
         serializer = self.serializer_class(
@@ -161,55 +204,76 @@ class ArtworkDetailView(APIView):
     authentication_classes = [JWTAuthentication, PaletteTokenAuthentication]
     permission_classes = [IsCreatorOrReadOnly]
 
+    @extend_schema(
+        operation_id="v1_artwork_retrieve",
+        tags=["artwork_v1"],
+    )
     def get(self, request, slug):
         """
         Retrieves an existing cached artwork object.
         If none exists, retrieves an caches an non-cached object.
         """
-        artwork = cache.get(f"artwork_{slug}")
-        if not artwork:
-            artwork = Artwork.available.filter(slug=slug).first()
+        cached_artwork = cache.get(f"artwork_{slug}")
+        if cached_artwork is not None:
+            artwork = pickle.loads(cached_artwork)
+        else:
+            artwork = Artwork.objects.filter(slug=slug).first()
             if artwork:
-                cache.set(f"artwork_{slug}", artwork)
-
-        if not artwork:
-            return Response("Artwork not found.", status=status.HTTP_404_NOT_FOUND)
+                update_palette_cache_details.delay(slug, "artwork")
+            else:
+                return Response("Artwork does not exist.", status=status.HTTP_404_NOT_FOUND)
 
         data = self.serializer_class(artwork).data
         return Response(data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        operation_id="v1_artwork_update",
+        tags=["artwork_v1"],
+    )
     def put(self, request, slug):
         """
         Updates an existing artwork object.
         Also updates the cache for both artwork list and corresponding artwork object.
         """
-        artwork = Artwork.objects.filter(slug=slug).first()
+        cached_artwork = cache.get(f"artwork_{slug}")
+        if cached_artwork is not None:
+            artwork = pickle.loads(cached_artwork)
+        else:
+            artwork = Artwork.objects.filter(slug=slug).first()
+            if not artwork:
+                return Response("Artwork does not exist.", status=status.HTTP_404_NOT_FOUND)
+
         serializer = self.serializer_class(artwork, data=request.data, partial=True)
         if serializer.is_valid(raise_exception=True):
             with atomic():
                 artwork = serializer.save()
-                cache.set(f"artwork_{slug}", artwork)
-                artworks_cache = cache.get("artwork_list", [])
-                artworks_cache = [i for i in artworks_cache if i.slug != slug]
-                artworks_cache.append(artwork)
-                cache.set("artwork_list", artworks_cache)
 
             artwork_data = self.serializer_class(artwork).data
+            update_palette_cache_details.delay(artwork_data["slug"], "artwork")
             return Response(artwork_data, status=status.HTTP_202_ACCEPTED)
 
+    @extend_schema(
+        operation_id="v1_artwork_delete",
+        tags=["artwork_v1"],
+    )
     def delete(self, request, slug):
         """
         Deletes an existing artwork object.
         Also deletes the cache for corresponding artwork object, and updates that of artwork list.
         """
-        artwork = Artwork.objects.filter(slug=slug).first()
+        cached_artwork = cache.get(f"artwork_{slug}")
+        if cached_artwork is not None:
+            artwork = pickle.loads(cached_artwork)
+        else:
+            artwork = Artwork.objects.filter(slug=slug).first()
+            if not artwork:
+                return Response("Artwork does not exist.", status=status.HTTP_404_NOT_FOUND)
+            
         with atomic():
-            cache.delete(f"artwork_{slug}")
-            artworks_cache = cache.get("artwork_list", [])
-            artworks_cache = [i for i in artworks_cache if i.slug != slug]
-            cache.set("artwork_list", artworks_cache)
             artwork.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
+            
+        update_palette_cache_details.delay(slug, "artwork", is_delete=True)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class CartListView(APIView):
@@ -217,6 +281,10 @@ class CartListView(APIView):
     authentication_classes = [JWTAuthentication, PaletteTokenAuthentication]
     permission_classes = [IsAuthenticated, IsCollectorOrReadOnly]
 
+    @extend_schema(
+        operation_id="v1_cart_retrieve",
+        tags=["cart_v1"],
+    )
     def get(self, request):
         """
         Retrieves a dict of all existing cart items.
@@ -231,11 +299,20 @@ class CartDetailView(APIView):
     authentication_classes = [JWTAuthentication, PaletteTokenAuthentication]
     permission_classes = [IsAuthenticated, IsCollectorOrReadOnly]
 
+    @extend_schema(
+        operation_id="v1_cart_create",
+        tags=["cart_v1"],
+    )
     def post(self, request, artwork_id):
         # Increments the quantity of artwork items in cart
-        artwork = Artwork.available.filter(id=artwork_id).first()
-        if not artwork:
-            return Response("Artwork not found.", status=status.HTTP_404_NOT_FOUND)
+        cached_artwork = cache.get(f"artwork_{artwork_id}")
+        if cached_artwork is not None:
+            artwork = pickle.loads(cached_artwork)
+        else:
+            artwork = Artwork.available.filter(id=artwork_id).first()
+            if not artwork:
+                return Response("Artwork does not exist.", status=status.HTTP_404_NOT_FOUND)
+            update_palette_cache_details.delay(artwork.slug, "artwork", object_id=artwork.id)
 
         serializer = self.serializer_class(
             data=request.data, context={"request": request, "artwork": artwork}
@@ -244,11 +321,20 @@ class CartDetailView(APIView):
             cart_data = serializer.save()
             return Response(cart_data, status=status.HTTP_201_CREATED)
 
-    def put(self, request, id):
+    @extend_schema(
+        operation_id="v1_cart_update",
+        tags=["cart_v1"],
+    )
+    def put(self, request, artwork_id):
         # Sets the quantity of artwork items in cart to a specific value
-        artwork = Artwork.available.filter(id=id).first()
-        if not artwork:
-            return Response("Artwork not found.", status=status.HTTP_404_NOT_FOUND)
+        cached_artwork = cache.get(f"artwork_{artwork_id}")
+        if cached_artwork is not None:
+            artwork = pickle.loads(cached_artwork)
+        else:
+            artwork = Artwork.available.filter(id=artwork_id).first()
+            if not artwork:
+                return Response("Artwork does not exist.", status=status.HTTP_404_NOT_FOUND)
+            update_palette_cache_details.delay(artwork.slug, "artwork", object_id=artwork.id)
 
         serializer = self.serializer_class(
             artwork, data=request.data, context={"request": request}
@@ -257,14 +343,21 @@ class CartDetailView(APIView):
             cart_list = serializer.save()
             return Response(cart_list, status=status.HTTP_202_ACCEPTED)
 
+    @extend_schema(
+        operation_id="v1_cart_delete",
+        tags=["cart_v1"],
+    )
     def delete(self, request, artwork_id):
-        UUID(artwork_id)
-
         # Removes artwork items from cart
         cart = Cart(request)
-        artwork = Artwork.available.filter(id=artwork_id).first()
-        if not artwork:
-            return Response("Artwork not found.", status=status.HTTP_404_NOT_FOUND)
+        cached_artwork = cache.get(f"artwork_{artwork_id}")
+        if cached_artwork is not None:
+            artwork = pickle.loads(cached_artwork)
+        else:
+            artwork = Artwork.available.filter(id=artwork_id).first()
+            if not artwork:
+                return Response("Artwork does not exist.", status=status.HTTP_404_NOT_FOUND)
+            update_palette_cache_details.delay(artwork.slug, "artwork", object_id=artwork.id)
 
         cart.remove(artwork)
         return Response(status=status.HTTP_204_NO_CONTENT)

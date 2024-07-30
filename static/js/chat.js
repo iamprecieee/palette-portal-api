@@ -140,6 +140,82 @@ function connectWebSocket() {
     });
 
 
+    // Handles loading of previous messages (paginated)
+    document.getElementById("previous-button").addEventListener("click", function() {
+        loadMessages(this.getAttribute("data-url"), true);
+    });
+
+    function loadMessages(url, prepend = false) {
+        if (!url) return;
+
+        fetch(url, {
+            headers: {
+                "Accept": "application/json"
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error("Network response was not ok.");
+            }
+            return response.json();
+        })
+        .then(data => {
+            const chatLog = document.querySelector("#chat-log");
+
+            data.results.forEach(message => {
+                const messageDiv = document.createElement("div");
+                messageDiv.className = message.sender === username ? "my-bubble" : "your-bubble";
+                messageDiv.id = `message-${message.id}`;
+                messageDiv.innerHTML = `
+                <div class="${message.message_type === 'AUD' ? 'audio-message' : ''}">
+                ${message.is_reply ? `
+                    <div class="reply" data-reply-to="${message.previous_message_id}">
+                        <span class="broker">${message.previous_sender}</span>
+                        <span class="bank">${message.previous_content}${message.previous_content === 'AUDIO' ? '&#9658;' : ''}</span>
+                        <p hidden>${message.previous_message_id}</p>
+                    </div>
+                ` : ''}
+                ${message.message_type === 'AUD' ? `
+                    <div class="purple">
+                        <button class="play-button">&#9658;</button>
+                        <div class="progress-bar">
+                            <div class="progress"></div>
+                        </div>
+                        <span class="audio-duration">00:00</span>
+                    </div>
+                    <audio hidden>
+                        <source src="${message.content}" type="audio/webm">
+                    </audio>
+                ` : `<span>${message.content}</span><br>`}
+                <small>${message.time}</small>
+                <p id="pentagon" hidden>${message.id}</p>
+                </div>
+            `;
+
+                if (prepend) {
+                    chatLog.insertBefore(messageDiv, chatLog.firstChild); // Prepend to top
+                }
+                else {
+                    chatLog.appendChild(messageDiv); // Append to bottom
+                }
+
+                initiailizeDraggable(messageDiv);
+                // scrollToBottom();
+                scrollToBubble();
+            });
+
+            document.getElementById("previous-button").hidden = !data.previous;
+            document.getElementById("previous-button").setAttribute("data-url", data.previous);
+
+            if (!prepend) {
+                scrollToBottom();
+            }
+        })
+        .catch(error => console.error("Error loading messages:", error));
+    }
+
+
+
     let isMessageSent = false // Prevents sending messages for each character typed
 
     // Function to handle typing status

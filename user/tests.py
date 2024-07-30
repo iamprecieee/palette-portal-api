@@ -3,8 +3,9 @@ from django.core.cache import cache
 
 from .models import User, Artist, Collector, PaletteAuthToken
 
-from rest_framework.test import APITestCase
+from rest_framework.test import APITestCase, override_settings
 from time import sleep
+import pickle
 
 
 class RegisterViewTestCase(APITestCase):
@@ -14,7 +15,6 @@ class RegisterViewTestCase(APITestCase):
     def test_register_success(self):
         response = self.client.post(self.url, data={
             "email": "admin@gmail.com",
-            "username": "admin",
             "password": "Admin,123",
             "confirm_password": "Admin,123"
         })
@@ -51,7 +51,8 @@ class RegisterViewTestCase(APITestCase):
         super().tearDown()
         sleep(15)
     
-    
+# Run tasks synchronously for testing and propagate exceptions to make debugging easier
+@override_settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_TASK_EAGER_PROPAGATES=True)
 class LoginViewTestCase(APITestCase):
     def setUp(self):
         self.knox_login = reverse("user:knox-login")
@@ -68,7 +69,7 @@ class LoginViewTestCase(APITestCase):
         )
     
     def test_knox_login_success(self):
-        for i in range(1, 5):
+        for i in range(0, 5):
             response = self.client.post(self.knox_login, data={
                 "email": "admin@gmail.com",
                 "password": "Admin,123"
@@ -93,7 +94,7 @@ class LoginViewTestCase(APITestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("access", response.data.keys())
 
-    def test_jwt_login(self):
+    def test_jwt_login_failure(self):
         response = self.client.post(self.jwt_login, data={
             "email": "admin1@gmail.com",
             "password": "Admin,123"
@@ -112,6 +113,7 @@ class LoginViewTestCase(APITestCase):
         self.assertEqual(response.data["refresh"], response1.data["refresh"])
         self.assertIn("access", response1.data.keys())
         
+    
     def test_mock_login(self):
         response = self.client.post(self.knox_login, data={
             "email": "admin@gmail.com",
@@ -147,7 +149,7 @@ class LoginViewTestCase(APITestCase):
         token = response.data["access"]
         self.client.post(self.jwt_logout, headers={"Authorization": f"Bearer {token}"})
         response1 = self.client.get(self.jwt_logout, headers={"Authorization": f"Bearer {token}"})
-        self.assertEqual("Invalid token.", response1.data)
+        self.assertEqual("Invalid authentication token. Log in again.", response1.data)
 
     def test_batch_knox_logout_success(self):
         token_list = {}
@@ -174,7 +176,8 @@ class LoginViewTestCase(APITestCase):
         super().tearDown()
         sleep(15)
     
-    
+
+@override_settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_TASK_EAGER_PROPAGATES=True)
 class ArtistProfileViewTestCase(APITestCase):
     def setUp(self):
         self.user1 = User.objects.create_user(
@@ -230,13 +233,14 @@ class ArtistProfileViewTestCase(APITestCase):
             headers={"Authorization": f"Token {token}"}
         )
         self.assertEqual(response1.status_code, 200)
-        self.assertEqual(len(response1.data), 2)
-        self.assertEqual(response1.data[0]["id"], str(self.artist2.id))
+        self.assertEqual(len(response1.data), 3)
+        self.assertEqual(response1.data["results"][0]["id"], str(self.artist2.id))
         self.assertIsNotNone(cache.get("artist_list"))
         
-    def test_get_collectors_from_cache_success(self):
+    def test_get_artists_from_cache_success(self):
         artist = Artist.objects.create(user=self.user3)
-        cache.set("artist_list", [artist])
+        artists = Artist.objects.all()
+        cache.set("artist_list", pickle.dumps(artists))
         
         response = self.client.post(
             self.knox_login,
@@ -248,8 +252,8 @@ class ArtistProfileViewTestCase(APITestCase):
             headers={"Authorization": f"Token {token}"}
         )
         self.assertEqual(response1.status_code, 200)
-        self.assertEqual(len(response1.data), 1)
-        self.assertEqual(response1.data[0]["id"], str(artist.id))
+        self.assertEqual(len(response1.data), 3)
+        self.assertEqual(response1.data["results"][0]["id"], str(artist.id))
         
     def test_artist_profile_list_get_failure(self):
         response = self.client.get(self.artist_profile)
@@ -319,6 +323,9 @@ class ArtistProfileViewTestCase(APITestCase):
         self.assertEqual(response1.status_code, 404)
         
     def test_artist_profile_detail_put_success(self):
+        artists = Artist.objects.all()
+        cache.set("artist_list", pickle.dumps(artists))
+        
         response = self.client.post(
             self.knox_login,
             data={"email": "admin1@gmail.com", "password": "Admin,123"}
@@ -331,6 +338,14 @@ class ArtistProfileViewTestCase(APITestCase):
         )
         self.assertEqual("Making more art", response1.data["bio"])
         self.assertEqual(response1.status_code, 202)
+        
+        response2 = self.client.get(
+            self.artist_profile,
+            headers={"Authorization": f"Token {token}"}
+        )
+        self.assertEqual(response2.status_code, 200)
+        self.assertEqual(len(response2.data), 3)
+        self.assertEqual(response2.data["results"][1]["bio"], "Making more art")
         
     def test_artist_profile_detail_put_failure(self):
         response = self.client.post(
@@ -359,6 +374,9 @@ class ArtistProfileViewTestCase(APITestCase):
         self.assertEqual(response3.status_code, 404)
         
     def test_artist_profile_detail_delete_success(self):
+        artists = Artist.objects.all()
+        cache.set("artist_list", pickle.dumps(artists))
+        
         response = self.client.post(
             self.knox_login,
             data={"email": "admin1@gmail.com", "password": "Admin,123"}
@@ -371,6 +389,14 @@ class ArtistProfileViewTestCase(APITestCase):
         )
         self.assertIsNone(response1.data)
         self.assertEqual(response1.status_code, 204)
+        
+        response2 = self.client.get(
+            self.artist_profile,
+            headers={"Authorization": f"Token {token}"}
+        )
+        self.assertEqual(response2.status_code, 200)
+        self.assertEqual(len(response2.data), 3)
+        self.assertEqual(len(response2.data["results"]), 1)
         
     def test_artist_profile_detail_delete_failure(self):
         response = self.client.post(
@@ -402,6 +428,7 @@ class ArtistProfileViewTestCase(APITestCase):
         sleep(15)
 
 
+@override_settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_TASK_EAGER_PROPAGATES=True)
 class CollectorProfileViewTestCase(APITestCase):
     def setUp(self):
         self.user1 = User.objects.create_user(
@@ -457,13 +484,14 @@ class CollectorProfileViewTestCase(APITestCase):
             headers={"Authorization": f"Token {token}"}
         )
         self.assertEqual(response1.status_code, 200)
-        self.assertEqual(len(response1.data), 2)
-        self.assertEqual(response1.data[0]["id"], str(self.collector2.id))
+        self.assertEqual(len(response1.data), 3)
+        self.assertEqual(response1.data["results"][0]["id"], str(self.collector2.id))
         self.assertIsNotNone(cache.get("collector_list"))
         
     def test_get_collectors_from_cache_success(self):
         collector = Collector.objects.create(user=self.user3)
-        cache.set("collector_list", [collector])
+        collectors = Collector.objects.all()
+        cache.set("collector_list", pickle.dumps(collectors))
         
         response = self.client.post(
             self.knox_login,
@@ -475,8 +503,8 @@ class CollectorProfileViewTestCase(APITestCase):
             headers={"Authorization": f"Token {token}"}
         )
         self.assertEqual(response1.status_code, 200)
-        self.assertEqual(len(response1.data), 1)
-        self.assertEqual(response1.data[0]["id"], str(collector.id))
+        self.assertEqual(len(response1.data), 3)
+        self.assertEqual(response1.data["results"][0]["id"], str(collector.id))
         
     def test_collector_profile_list_get_failure(self):
         response = self.client.get(self.collector_profile)
@@ -546,6 +574,9 @@ class CollectorProfileViewTestCase(APITestCase):
         self.assertEqual(response1.status_code, 404)
         
     def test_collector_profile_detail_put_success(self):
+        collectors = Collector.objects.all()
+        cache.set("collector_list", pickle.dumps(collectors))
+        
         response = self.client.post(
             self.knox_login,
             data={"email": "admin1@gmail.com", "password": "Admin,123"}
@@ -558,6 +589,14 @@ class CollectorProfileViewTestCase(APITestCase):
         )
         self.assertEqual("Buying more art", response1.data["bio"])
         self.assertEqual(response1.status_code, 202)
+        
+        response2 = self.client.get(
+            self.collector_profile,
+            headers={"Authorization": f"Token {token}"}
+        )
+        self.assertEqual(response2.status_code, 200)
+        self.assertEqual(len(response2.data), 3)
+        self.assertEqual(response2.data["results"][1]["bio"], "Buying more art")
         
     def test_collector_profile_detail_put_failure(self):
         response = self.client.post(
@@ -586,6 +625,9 @@ class CollectorProfileViewTestCase(APITestCase):
         self.assertEqual(response3.status_code, 404)
         
     def test_collector_profile_detail_delete_success(self):
+        collectors = Collector.objects.all()
+        cache.set("collector_list", pickle.dumps(collectors))
+        
         response = self.client.post(
             self.knox_login,
             data={"email": "admin1@gmail.com", "password": "Admin,123"}
@@ -598,6 +640,14 @@ class CollectorProfileViewTestCase(APITestCase):
         )
         self.assertIsNone(response1.data)
         self.assertEqual(response1.status_code, 204)
+        
+        response2 = self.client.get(
+            self.collector_profile,
+            headers={"Authorization": f"Token {token}"}
+        )
+        self.assertEqual(response2.status_code, 200)
+        self.assertEqual(len(response2.data), 3)
+        self.assertEqual(len(response2.data["results"]), 1)
         
     def test_collector_profile_detail_delete_failure(self):
         response = self.client.post(

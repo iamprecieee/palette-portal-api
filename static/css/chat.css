@@ -221,6 +221,11 @@ body {
     width: 50%;
 }
 
+.pagination {
+    animation: bubbleAppear 1s ease-in-out;
+    /* width: 50%; */
+}
+
 .mirage input, .typhoon input {
     border-color: transparent;
     border-radius: 5px;
@@ -273,6 +278,24 @@ body {
 
 .typhoon input:hover {
     transform: scale(1.1)
+}
+
+#previous-button {
+    background-color: #297cb3;
+    border: none;
+    border-radius: 5px;
+    box-shadow: 0 4px 7px rgba(0, 0, 0, 0.4);
+    color: rgb(252, 217, 157);
+    transition: opacity 5s ease;
+}
+
+#previous-button:hover {
+    transform: scale(1.1)
+} 
+
+#previous-button[hidden] {
+    opacity: 0;
+    pointer-events: none;
 }
 
 @keyframes fadeIn {

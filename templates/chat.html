@@ -19,6 +19,11 @@
             </div>
         </div>
 
+        <!-- Pagination Controls -->
+        <div class="pagination">
+            <button id="previous-button" data-url="{{ previous }}" {% if not previous %} hidden {% endif %}><small>load previous messages...</small></button>
+        </div>
+
         <!-- Chat Log -->
         <div class="chimera" id="chat-log">
             {% for message in messages %}
@@ -77,8 +82,9 @@
     {{ other_username|json_script:"other_username" }}
     {{ other_user_status|json_script:"other_user_status" }}
     {{ is_debug|json_script:"is_debug" }}
+    {{ previous|json_script:"previous" }}
+    {{ next|json_script:"next" }}
 
     <script src="{% static 'js/chat.js' %}"></script>
-
 </body>
 </html>

@@ -37,6 +37,7 @@ class Cart:
             self.cart[artwork_id]["quantity"] += quantity
         else: 
             self.cart[artwork_id]["quantity"] = quantity
+            
         self.save()
 
     # Removes artwork from cart
@@ -60,16 +61,12 @@ class Cart:
         artwork_ids = self.cart.keys()
         artworks = Artwork.objects.filter(id__in=artwork_ids)
         for artwork in artworks:
-            artwork_data = ArtworkSerializer(
-                artwork
-            ).data  # `artwork` on its own is not JSON-serializable
+            artwork_data = ArtworkSerializer(artwork).data  # `artwork` on its own is not JSON-serializable
             cart[str(artwork.id)]["artwork"] = artwork_data
 
         # Calculates and sets a total price for each items in cart
         for item in cart.values():
-            item["total_price"] = str(
-                item["price"] * item["quantity"]
-            )  # Decimal() is not JSON-serializable **********
+            item["total_price"] = str(item["price"] * item["quantity"])  # Decimal() is not JSON-serializable ***
             yield item
 
     # Calculates the total number of individual items in cart

@@ -1,8 +1,11 @@
-from django.db.transaction import atomic
+from django.db.transaction import atomic, on_commit
 from django.db import IntegrityError
+from django.utils import timezone
+from django.core import signing
 
-from .models import User, Artist, Collector, PaletteAuthToken
+from .models import User, Artist, Collector, PaletteAuthToken, UserOTP
 from .refresh import SessionRefreshToken
+from .tasks import store_access_token, send_otp
 
 from rest_framework.serializers import (
     ModelSerializer,
@@ -25,7 +28,7 @@ class RegisterSerializer(ModelSerializer):
     class Meta:
         model = User
         fields = ["id", "email", "username", "password", "confirm_password"]
-        read_only_fields = ["id"]
+        read_only_fields = ["id", "username"]
 
     def validate(self, data):
         password = data["password"]
@@ -35,7 +38,7 @@ class RegisterSerializer(ModelSerializer):
             raise ValidationError(
                 {"password": "Password must contain at least 8 characters."}
             )
-
+            
         if not re.search(r"[0-9]", password):
             raise ValidationError(
                 {"password": "Password must contain at least 1 number."}
@@ -58,16 +61,149 @@ class RegisterSerializer(ModelSerializer):
 
     def create(self, validated_data):
         validated_data.pop("confirm_password")
-
         return User.objects.create_user(**validated_data)
+    
+    
+class RequestEmailVerificationSerializer(Serializer):
+    email = CharField()
+    
+    def validate(self, data):
+        email = data.get("email")
+        if not email:
+            raise ValidationError({"email": "Email field is required."})
+        
+        self.user = User.objects.filter(email=email).first()
+        if not self.user:
+            raise ValidationError({"email": "This email does not belong to an existing user."})
+        
+        if UserOTP.objects.filter(user=self.user, otp_type=UserOTP.OTPType.EMAIL).exists():
+            raise ValidationError({"OTP": "Please check your email for an existing verification link."})
+        
+        return data
+    
+    def save(self, **kwargs):
+        send_otp.delay(self.user.email)
+        
+    
+class EmailVerificationOTPSerializer(Serializer):
+    token = CharField(write_only=True)
+    
+    def validate(self, data):
+        try:
+            (otp_code, user_id) = signing.loads(data["token"])
+        except signing.BadSignature:
+            raise ValidationError({"OTP": "Invalid OTP code detected."})
+        
+        self.otp = UserOTP.objects.filter(otp_code=otp_code, user_id=user_id).first()
+        if not self.otp:
+            raise ValidationError({"OTP": "OTP code has been used or never existed."})
+        
+        self.otp_user = self.otp.user
+        if self.otp_user.is_email_verified:
+            self.otp.delete()
+            raise ValidationError({"OTP": "This user's email has already been verified."})
+        
+        elif timezone.now() > self.otp.expiry:
+            self.otp.delete()
+            on_commit(lambda: send_otp.delay(self.otp_user.email))
+            raise ValidationError({"OTP": "OTP code is invalid. A new code has been sent to your email."})
+        
+        return data
+                
+    
+    def save(self, **kwargs):
+        self.otp_user.is_email_verified = True
+        self.otp_user.save()
+        self.otp.delete()
+        
+        
+class PasswordChangeSerializer(Serializer):
+    email = CharField()
+    
+    def validate(self, data):
+        email = data.get("email")
+        if not email:
+            raise ValidationError({"email": "Email field is required."})
+        
+        self.user = User.objects.filter(email=email).first()
+        if not self.user:
+            raise ValidationError({"email": "This email does not belong to an existing user."})
+        
+        if UserOTP.objects.filter(user=self.user, otp_type=UserOTP.OTPType.PASSWORD).exists():
+            raise ValidationError({"OTP": "Please check your email for an existing password change link."})
+        
+        return data
+    
+    def save(self, **kwargs):
+        send_otp.delay(self.user.email, otp_type="password")
+        
+        
+class PasswordChangeSerializer(Serializer):
+    password = CharField(write_only=True)
+    confirm_password = CharField(write_only=True)
+    
+    def validate(self, data):
+        self.password = data.get("password")
+        confirm_password = data.get("confirm_password")
+        if not self.password:
+            raise ValidationError({"password": "Password field is required."})
+        elif not confirm_password:
+            raise ValidationError({"password": "Confirm Password field is also required."})
+        
+        token = self.context["token"]
+        try:
+            (otp_code, user_id) = signing.loads(token)
+        except signing.BadSignature:
+            raise ValidationError({"OTP": "Invalid OTP code detected."})
+        
+        self.otp = UserOTP.objects.filter(otp_code=otp_code, user_id=user_id).first()
+        self.otp_user = self.otp.user
+        if not self.otp:
+            raise ValidationError({"OTP": "OTP code has been used or never existed."})
+        
+        elif timezone.now() > self.otp.expiry:
+            self.otp.delete()
+            on_commit(lambda: send_otp.delay(self.otp_user.email, otp_type="password"))
+            raise ValidationError({"OTP": "OTP code is invalid. A new code has been sent to your email."})
+        
+        if len(self.password) < 8:
+            raise ValidationError(
+                {"password": "Password must contain at least 8 characters."}
+            )
+            
+        if not re.search(r"[0-9]", self.password):
+            raise ValidationError(
+                {"password": "Password must contain at least 1 number."}
+            )
+
+        if not re.search(r"[A-Z]", self.password):
+            raise ValidationError(
+                {"password": "Password must contain at least 1 uppercase letter."}
+            )
+
+        if not re.search(r'[!@#$%^&*()_+=,.?/\|":;`~]', self.password):
+            raise ValidationError(
+                {"password": "Password must contain at least 1 symbol."}
+            )
+
+        if self.password != confirm_password:
+            raise ValidationError({"password": "Passwords do not match."})
+        
+        return data
+    
+    def save(self, **kwargs):
+        with atomic():
+            self.otp_user.set_password(self.password)
+            self.otp_user.is_social_password_updated = True
+            self.otp_user.save()
+            self.otp.delete()
 
 
-class LoginSerializer(ModelSerializer):
+class KnoxLoginSerializer(ModelSerializer):
     """
     Serializer for knox-based login.
     Updates `last_login` and deletes extra auth tokens.
     """
-
     email = EmailField()
     password = CharField(write_only=True)
 
@@ -88,10 +224,10 @@ class LoginSerializer(ModelSerializer):
 
         user.save(update_fields=["last_login"])
         with atomic():
-            if PaletteAuthToken.objects.filter(user=user).count() == 3:
-                PaletteAuthToken.objects.filter(user=user).last().delete()
+            from .tasks import delete_extra_palette_token
             _, token = PaletteAuthToken.objects.create(user)
-
+            delete_extra_palette_token.delay(user.id)
+                
         return user, token
 
 
@@ -114,6 +250,7 @@ class RefreshTokenSerializer(Serializer):
 
         session_refresh.remove()
         session_refresh.add(access_data["refresh"])
+        store_access_token.delay(access_data["access"])
 
         return access_data
 

@@ -121,7 +121,7 @@ class CartUpdateSerializer(Serializer):
     def __init__(self, instance=None, data=..., **kwargs):
         super().__init__(instance, data, **kwargs)
         
-        from .cart import Cart
+        from .cart import Cart # Importing here to avoid circular issues
         
         self.cart = Cart
     

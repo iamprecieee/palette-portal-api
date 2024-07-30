@@ -16,12 +16,12 @@ from django.db.models import (
     CASCADE,
 )
 from django.db.models.manager import Manager
+from django.conf import settings
 
 from user.models import Artist
 
 from uuid import uuid4
 from cloudinary.uploader import destroy
-import os
 
 
 # Custom manager class for operating on available artworks
@@ -83,8 +83,8 @@ class Artwork(Model):
             public_id = self.image.name
             destroy(
                 public_id=public_id,
-                api_key=os.getenv("API_KEY"),
-                api_secret=os.getenv("API_SECRET"),
-                cloud_name=os.getenv("CLOUD_NAME"),
+                api_key=settings.CLOUDINARY_STORAGE["API_KEY"],
+                api_secret=settings.CLOUDINARY_STORAGE["API_SECRET"],
+                cloud_name=settings.CLOUDINARY_STORAGE["CLOUD_NAME"],
             )
         return super().delete(*args, **kwargs)

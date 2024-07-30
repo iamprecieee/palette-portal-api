@@ -11,6 +11,7 @@ from django.db.models import (
     CASCADE,
     ForeignKey,
     Index,
+    TextChoices,
 )
 from django.contrib.auth.models import (
     BaseUserManager,
@@ -18,6 +19,7 @@ from django.contrib.auth.models import (
     PermissionsMixin,
 )
 from django.conf import settings
+from django.utils import timezone
 
 from .utils import generate_default_username, uuid4
 
@@ -31,30 +33,34 @@ from knox.auth import (
     exceptions,
     compare_digest,
 )
+from datetime import timedelta
 
 
 class PaletteUserManager(BaseUserManager):
-    def _create_user(self, email, username, password, **kwargs):
+    def _create_user(self, email, password, username=generate_default_username(), **kwargs):
         email = self.normalize_email(email)
         user = self.model(email=email, username=username, **kwargs)
-        user.set_password(password)
+        if password == "social":
+            user.set_unusable_password()
+        else:
+            user.set_password(password)
         user.save(using=self._db)
+        
         return user
 
-    def create_superuser(
-        self, email, password, username=generate_default_username(), **kwargs
-    ):
+    def create_superuser(self, email, password, **kwargs):
         kwargs.setdefault("is_staff", True)
         kwargs.setdefault("is_superuser", True)
+        
         return self._create_user(
-            email=email, username=username, password=password, **kwargs
+            email=email, password=password, **kwargs
         )
 
-    def create_user(self, email, username, password, **kwargs):
+    def create_user(self, email, password, **kwargs):
         return self._create_user(
-            email=email, username=username, password=password, **kwargs
+            email=email, password=password, **kwargs
         )
-
+        
 
 class User(AbstractBaseUser, PermissionsMixin):
     id = UUIDField(primary_key=True, editable=False, default=uuid4)
@@ -64,6 +70,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_staff = BooleanField(default=False)
     is_superuser = BooleanField(default=False)
     is_active = BooleanField(default=True)
+    is_email_verified = BooleanField(default=False)
     created = DateTimeField(auto_now_add=True)
     updated = DateTimeField(auto_now=True)
     last_login = DateTimeField(auto_now=True)
@@ -78,6 +85,21 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.username
+    
+    
+class UserOTP(Model):
+    class OTPType(TextChoices):
+        EMAIL = ("EML", "Email")
+        PASSWORD = ("PWD", "Password")
+    otp_code = CharField(max_length=6, unique=True, editable=False, db_index=True)
+    otp_type = CharField(max_length=3, choices=OTPType.choices, default=OTPType.EMAIL)
+    expiry = DateTimeField(default=timezone.now() + timedelta(minutes=15), editable=False, db_index=True)
+    user = OneToOneField(
+        User, related_name="user_email_otp", on_delete=CASCADE, db_index=True
+    )
+    
+    def __str__(self):
+        return f"Active OTP code for {self.user.email}: {self.otp_code}"
 
 
 class Artist(Model):
@@ -169,12 +191,13 @@ class PaletteTokenAuthentication(TokenAuthentication):
         raise exceptions.AuthenticationFailed(msg)
 
 
-# For manually blacklisting [stateless] access tokens
-class JWTTokenBlacklist(Model):
-    token = CharField(max_length=255, unique=True, db_index=True)
-    user = ForeignKey(User, related_name="blacklisted_tokens", on_delete=CASCADE)
+class JWTAccessToken(Model):
+    token = CharField(max_length=1024, unique=True, db_index=True)
+    user = ForeignKey(User, related_name="user_access_token", on_delete=CASCADE)
     created = DateTimeField(auto_now_add=True)
-
+    
     class Meta:
         ordering = ["-created"]
-        indexes = [Index(fields=["token", "user"])]
+        
+    def __str__(self):
+        return self.token

@@ -24,6 +24,15 @@ COPY ./install_requirements.py ./install_requirements.py
 # Install dependencies
 RUN python install_requirements.py
 
+# Copy entrypoint
+COPY ./entrypoint.sh ./entrypoint.sh
+
+# Give execute permissions for entrypoint
+RUN chmod +x entrypoint.sh
+
+# Copy redis conf file
+COPY ./redis.conf ./redis.conf
+
 # Copy the current project directory's contents into the container at "/home/portal"
 COPY . .
 
@@ -36,3 +45,6 @@ RUN python manage.py collectstatic --no-input
 
 # Change user to non-root user "artist"
 USER artist
+
+# Specify the entrypoint script
+ENTRYPOINT ["./entrypoint.sh"]

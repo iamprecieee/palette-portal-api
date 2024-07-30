@@ -5,7 +5,7 @@ from .models import Chat, Message
 
 @register(Chat)
 class ChatAdmin(ModelAdmin):
-    list_display = ["id", "artist", "collector", "created"]
+    list_display = ["id", "artist", "collector", "is_artist_online", "is_collector_online", "created"]
     list_filter = ["id", "created"]
 
 

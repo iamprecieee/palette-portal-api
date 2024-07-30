@@ -14,15 +14,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.chat_id = self.scope["url_route"]["kwargs"]["chat_id"]
         self.chat_group_name = f"chat_{self.chat_id}"
 
-        headers = dict(
-            self.scope["headers"]
-        )  # Headers dict should contain the authentication token
+        headers = dict(self.scope["headers"])  # Headers dict should contain the authentication token
         user = await confirm_authorization(headers)
         self.user = user
         self.username = user.username
-        chat = await get_chat_members(
-            self.chat_id
-        )  # Retrieves the users in the current chat
+        chat = await get_chat_members(self.chat_id)  # Retrieves the users in the current chat
         if not user in chat:
             await self.close(code=4001)
 
@@ -37,7 +33,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             self.chat_group_name,
             {"type": "chat.status", "content": "online", "username": self.username},
         )
-
         await set_user_status(self.user, self.chat_id, status="online")
 
     async def disconnect(self, close_code):
@@ -52,9 +47,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 "username": self.username,
             },
         )
-
         await self.channel_layer.group_discard(self.chat_group_name, self.channel_name)
-
         await set_user_status(self.user, self.chat_id, status="offline")
 
     # Receive message from websocket client
@@ -78,11 +71,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
                 # Handle binary data (audio message)
                 filename = await generate_random_filename()
-                message = b64encode(audio_data).decode(
-                    "utf-8"
-                )  # Encode to base64 for sending as text
+                message = b64encode(audio_data).decode("utf-8")  # Encode to base64 for sending as text
 
                 if message_type == "audio":
+                    """ 
+                    For 'non-reply' audio messages.
+                    """
                     audio_message_id, created = await create_new_audio_message(
                         self.user, self.chat_id
                     )
@@ -98,9 +92,11 @@ class ChatConsumer(AsyncWebsocketConsumer):
                             "id": str(audio_message_id),
                         },
                     )
-
                     await update_audio_message(audio_message_id, message, filename)
                 else:
+                    """ 
+                    For 'reply' audio messages.
+                    """
                     previous_message_id = metadata.get("previous_message_id")
                     replied_message = await get_replied_message(
                         previous_message_id, self.chat_id
@@ -111,7 +107,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         previous_content = replied_message["content"]
 
                     content = "audio"
-
                     reply_id, created = await create_new_reply(
                         self.user,
                         content,
@@ -120,7 +115,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         previous_message_id,
                         self.chat_id,
                     )
-
                     await self.channel_layer.group_send(
                         self.chat_group_name,
                         {
@@ -135,16 +129,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
                             "id": str(reply_id),
                         },
                     )
-
                     await update_audio_message(reply_id, message, filename)
         else:
-
             text_data_json = json.loads(text_data)
             message = text_data_json.get("message")
             message_type = text_data_json.get("type")
 
             # Send message to chat group
             if message_type == "typing":
+                """ 
+                For 'typing' status messages.
+                """
                 await self.channel_layer.group_send(
                     self.chat_group_name,
                     {
@@ -158,6 +153,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     },
                 )
             elif message_type == "message":
+                """ 
+                For 'non-reply' text messages.
+                """
                 if message:
                     message_id, created = await create_new_message(
                         self.user, message, self.chat_id
@@ -175,6 +173,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         },
                     )
             elif message_type == "reply":
+                """ 
+                For 'reply' text messages.
+                """
                 previous_message_id = text_data_json.get("previous_message_id")
                 if message:
                     replied_message = await get_replied_message(
@@ -193,7 +194,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
                         previous_message_id,
                         self.chat_id,
                     )
-
                     await self.channel_layer.group_send(
                         self.chat_group_name,
                         {
@@ -212,25 +212,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
     # Receive message from room group
     async def chat_status(self, event):  # Handler for chat.status
         text_data = json.dumps(event)
-
         await self.send(text_data)
 
     async def chat_typing(self, event):  # Handler for chat.typing
         text_data = json.dumps(event)
-
         await self.send(text_data)
 
     async def chat_message(self, event):  # Handler for chat.message
         text_data = json.dumps(event)
-
         await self.send(text_data)
 
     async def chat_reply(self, event):  # Handler for chat.reply
         text_data = json.dumps(event)
-
         await self.send(text_data)
 
     async def chat_audio(self, event):  # Handler for chat.audio
         text_data = json.dumps(event)
-
         await self.send(text_data)

@@ -13,8 +13,17 @@ from .views import (
     CollectorProfileListView,
     ArtistProfileDetailView,
     CollectorProfileDetailView,
-    CronJobAction
+    CronJobAction,
+    SocialAuthenticationBeginView,
+    SocialAuthenticationCompleteView,
+    VerifyUserEmailBeginView,
+    VerifyUserEmailCompleteView,
+    ChangePasswordBeginView,
+    ChangePasswordCompleteView,
 )
+
+from social_django.urls import extra
+
 
 
 app_name = "user"
@@ -33,4 +42,13 @@ urlpatterns = [
     path("profile/collector/", CollectorProfileListView.as_view(), name="collector-profile-list"),
     path("profile/collector/<str:profile_id>/", CollectorProfileDetailView.as_view(), name="collector-profile-detail"),
     path("cron-job/", CronJobAction.as_view(), name="cron-job"),
+    
+    path("verify-email/begin/", VerifyUserEmailBeginView.as_view(), name="verify-email-begin"),
+    path("verify-email/complete/<str:token>/", VerifyUserEmailCompleteView.as_view(), name="verify-email-complete"),
+    path("change-password/begin/", ChangePasswordBeginView.as_view(), name="change-password-begin"),
+    path("change-password/complete/<str:token>/", ChangePasswordCompleteView.as_view(), name="change-password-complete"),
+    
+    # OAuth
+    path(f"social/begin/<str:backend>{extra}", SocialAuthenticationBeginView.as_view(), name="social-begin"),
+    path("social/complete/<str:backend>/", SocialAuthenticationCompleteView.as_view(), name="social-complete"),
 ]

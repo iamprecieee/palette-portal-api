@@ -1,6 +1,13 @@
 from django.contrib.admin import ModelAdmin, register
 
-from .models import User, Artist, Collector, JWTTokenBlacklist
+from .models import (
+    User, 
+    Artist, 
+    Collector, 
+    JWTAccessToken, 
+    PaletteAuthToken, 
+    UserOTP
+)
 
 
 @register(User)
@@ -32,9 +39,23 @@ class CollectorAdmin(ModelAdmin):
     list_filter = ["id", "instagram", "user", "created"]
 
 
-@register(JWTTokenBlacklist)
-class JWTTokenBlacklistAdmin(ModelAdmin):
+@register(JWTAccessToken)
+class JWTAccessTokenAdmin(ModelAdmin):
     list_display = ["token", "user"]
     list_filter = ["user"]
-    verbose_name = "Blacklisted Token"
-    verbose_name_plural = "Blacklisted Tokens"
+    verbose_name = "JWT Access Token"
+    verbose_name_plural = "JWT Access Tokens"
+    
+    
+@register(PaletteAuthToken)
+class PaletteAuthTokenAdmin(ModelAdmin):
+    list_display = ["digest", "token_key", "user", "created", "expiry"]
+    list_filter = ["digest", "user"]
+    verbose_name = "Palette Auth Token"
+    verbose_name_plural = "Palette Auth Tokens"
+    
+    
+@register(UserOTP)
+class UserOTPAdmin(ModelAdmin):
+    list_display = ["otp_code", "otp_type", "expiry", "user"]
+    list_filter = ["otp_code", "otp_type", "expiry", "user"]

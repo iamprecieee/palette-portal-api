@@ -1,12 +1,12 @@
 # User Registration
 ## RegisterView
-- <i><b>Endpoint</b></i>: `v1/user/register/`
+- <i><b>Endpoint</b></i>: `/api/v1/user/register/`
 - <i><b>Method</b></i>: POST
-- <i><b>Description</b></i>: Registers a new user by accepting their registration data.
+- <i><b>Description</b></i>: Registers a new user by accepting their registration data. Returns created data and sends a verification email.
 
 ### Request Example:
 ```shell
-POST /v1/user/register/ HTTP/1.1
+POST /api/v1/user/register/ HTTP/1.1
 Host: 127.0.0.1
 Content-Type: application/json
 
@@ -27,8 +27,9 @@ Content-Type: application/json
 {
     "id": "72111ce4-8e06-47c7-8320-a3c0da6c550a",
     "email": "admin@gmail.com",
-    "username": "admin"
-}
+    "username": "admin",
+},
+"A verification OTP has been sent to your email address."
 ```
 - <i><b>Error Responses</b></i>:
 ```shell
@@ -36,7 +37,7 @@ HTTP/1.1 400 Bad Request
 Content-Type: application/json
 
 {
-    "Password error. Password must contain at least 1 symbol."
+    "detail": "Password error. Password must contain at least 1 symbol."
 }
 ```
 ```shell
@@ -44,7 +45,7 @@ HTTP/1.1 400 Bad Request
 Content-Type: application/json
 
 {
-    "User with this email already exists."
+    "detail": "User with this email already exists."
 }
 ```
 ```shell
@@ -52,19 +53,19 @@ HTTP/1.1 429 Too Many Requests
 Content-Type: application/json
 
 {
-    "Request was throttled. Expected available in 60 seconds."
+    "detail": "Request was throttled. Expected available in 60 seconds."
 }
 ```
 
 # User Authentication
 ## KnoxLoginView
-- <i><b>Endpoint</b></i>: `v1/user/login-knox/`
+- <i><b>Endpoint</b></i>: `/api/v1/user/login-knox/`
 - <i><b>Method</b></i>: POST
 - <i><b>Description</b></i>: Authenticates a user using [PaletteTokenAuthentication](https://github.com/iamprecieee/palette-portal-api/blob/b58a5a0127d0ff8c41678606a657a5ae8ac3dcae/user/models.py#L146) and [PaletteAuthToken](https://github.com/iamprecieee/palette-portal-api/blob/b58a5a0127d0ff8c41678606a657a5ae8ac3dcae/user/models.py#L121) as its token model. This allows for multiple logged-in sessions by the same user (capped at 3).
 
 ### Request Example:
 ```shell
-POST /v1/user/login-knox/ HTTP/1.1
+POST /api/v1/user/login-knox/ HTTP/1.1
 Host: 127.0.0.1
 Content-Type: application/json
 
@@ -93,7 +94,7 @@ HTTP/1.1 401 Authentication Failed
 Content-Type: application/json
 
 {
-    "No active account found with the given credentials."
+    "detail": "No active account found with the given credentials."
 }
 ```
 ```shell
@@ -101,18 +102,18 @@ HTTP/1.1 429 Too Many Requests
 Content-Type: application/json
 
 {
-    "Request was throttled. Expected available in 60 seconds."
+    "detail": "Request was throttled. Expected available in 60 seconds."
 }
 ```
 
 ## JWTLoginView
-- <i><b>Endpoint</b></i>: `v1/user/login-jwt/`
+- <i><b>Endpoint</b></i>: `/api/v1/user/login-jwt/`
 - <i><b>Method</b></i>: POST
-- <i><b>Description</b></i>: Authenticates a user using SimpleJWT's [TokenObtainPairView](https://github.com/jazzband/djangorestframework-simplejwt/blob/master/rest_framework_simplejwt/views.py#L51). This allows for stateless logins. On each login, the user's [SessionRefreshToken](https://github.com/iamprecieee/palette-portal-api/blob/b58a5a0127d0ff8c41678606a657a5ae8ac3dcae/user/refresh.py#L8) is updated to the current JWT refresh token and the previous one gets blacklisted.
+- <i><b>Description</b></i>: Authenticates a user using SimpleJWT's [TokenObtainPairView](https://github.com/jazzband/djangorestframework-simplejwt/blob/master/rest_framework_simplejwt/views.py#L51). This allows for stateless logins. On each login, the user's [SessionRefreshToken](https://github.com/iamprecieee/palette-portal-api/blob/b58a5a0127d0ff8c41678606a657a5ae8ac3dcae/user/refresh.py#L8) is updated to the current JWT refresh token and the previous one gets blacklisted. Updates the current 'access' token in db.
 
 ### Request Example:
 ```shell
-POST /v1/user/login-jwt/ HTTP/1.1
+POST /api/v1/user/login-jwt/ HTTP/1.1
 Host: 127.0.0.1
 Content-Type: application/json
 
@@ -142,7 +143,7 @@ HTTP/1.1 401 Authentication Failed
 Content-Type: application/json
 
 {
-    "No active account found with the given credentials."
+    "detail": "No active account found with the given credentials."
 }
 ```
 ```shell
@@ -150,18 +151,18 @@ HTTP/1.1 429 Too Many Requests
 Content-Type: application/json
 
 {
-    "Request was throttled. Expected available in 60 seconds."
+    "detail": "Request was throttled. Expected available in 60 seconds."
 }
 ```
 
 ## JWTRefreshView
-- <i><b>Endpoint</b></i>: `v1/user/token/refresh/`
+- <i><b>Endpoint</b></i>: `/api/v1/user/token/refresh/`
 - <i><b>Method</b></i>: POST
 - <i><b>Description</b></i>: Returns a new token pair using the current JWT refesh token in the user's [SessionRefreshToken](https://github.com/iamprecieee/palette-portal-api/blob/b58a5a0127d0ff8c41678606a657a5ae8ac3dcae/user/refresh.py#L8) and updates the session data to the new pair.
 
 ### Request Example (No content):
 ```shell
-POST /v1/user/token/refresh/ HTTP/1.1
+POST /api/v1/user/token/refresh/ HTTP/1.1
 Host: 127.0.0.1
 ```
 
@@ -182,18 +183,18 @@ HTTP/1.1 429 Too Many Requests
 Content-Type: application/json
 
 {
-    "Request was throttled. Expected available in 60 seconds."
+    "detail": "Request was throttled. Expected available in 60 seconds."
 }
 ```
 
 ## KnoxLogoutView
-- <i><b>Endpoint</b></i>: `v1/user/logout-knox/`
+- <i><b>Endpoint</b></i>: `/api/v1/user/logout-knox/`
 - <i><b>Method</b></i>: POST
 - <i><b>Description</b></i>: Logs out the current user session using [PaletteTokenAuthentication](https://github.com/iamprecieee/palette-portal-api/blob/b58a5a0127d0ff8c41678606a657a5ae8ac3dcae/user/models.py#L146) as authentication_class. Any other knox sessions remain active.
 
 ### Request Example (No content):
 ```shell
-POST /v1/user/logout-knox/ HTTP/1.1
+POST /api/v1/user/logout-knox/ HTTP/1.1
 Host: 127.0.0.1
 Authorization: Token 6edbb190af25503afcb1f84cb9754203e67a9318edef6705ce48ccea8c4b88c7
 ```
@@ -205,7 +206,7 @@ HTTP/1.1 200 OK
 Content-Type: application/json
 
 {
-    "User logged out successfully."
+    "detail": "User logged out successfully."
 }
 ```
 - <i><b>Error Responses</b></i>:
@@ -214,7 +215,7 @@ HTTP/1.1 401 Unauthorized
 Content-Type: application/json
 
 {
-    "Invalid token."
+    "detail": "Invalid token."
 }
 ```
 ```shell
@@ -222,18 +223,18 @@ HTTP/1.1 429 Too Many Requests
 Content-Type: application/json
 
 {
-    "Request was throttled. Expected available in 60 seconds."
+    "detail": "Request was throttled. Expected available in 60 seconds."
 }
 ```
 
 ## JWTLogoutView
-- <i><b>Endpoint</b></i>: `v1/user/logout-jwt/`
+- <i><b>Endpoint</b></i>: `/api/v1/user/logout-jwt/`
 - <i><b>Method</b></i>: POST
 - <i><b>Description</b></i>: Logs out the current user session using [JWTAuthentication](https://github.com/jazzband/djangorestframework-simplejwt/blob/master/rest_framework_simplejwt/authentication.py#L27) as authentication_class. The JWT access token is blacklisted using [JWTTokenBlacklist](https://github.com/iamprecieee/palette-portal-api/blob/b58a5a0127d0ff8c41678606a657a5ae8ac3dcae/user/models.py#L173), and refresh token is removed from the session.
 
 ### Request Example (No content):
 ```shell
-POST /v1/user/logout-jwt/ HTTP/1.1
+POST /api/v1/user/logout-jwt/ HTTP/1.1
 Host: 127.0.0.1
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzIxMzMxMjE5LCJpYXQiOjE3MjEyMDE2MTksImp0aSI6ImEzNDNmZDFmNjZlNTRkNGRiMjExMTcwNDM0NDI1YWE4IiwidXNlcl9pZCI6ImY2MWRkZjQ5LTc5NmUtNDExNi1iM2RmLTI5ZGE3ODFkNTgxYiJ9.WSjLHGEFXTxlaVvPEXASs-1vPeYoOnVZVoo13QheoNM
 ```
@@ -245,7 +246,7 @@ HTTP/1.1 200 OK
 Content-Type: application/json
 
 {
-    "User logged out successfully."
+    "detail": "User logged out successfully."
 }
 ```
 - <i><b>Error Responses</b></i>:
@@ -254,7 +255,7 @@ HTTP/1.1 401 Unauthorized
 Content-Type: application/json
 
 {
-    "Invalid token."
+    "detail": "Invalid token."
 }
 ```
 ```shell
@@ -262,18 +263,18 @@ HTTP/1.1 429 Too Many Requests
 Content-Type: application/json
 
 {
-    "Request was throttled. Expected available in 60 seconds."
+    "detail": "Request was throttled. Expected available in 60 seconds."
 }
 ```
 
 ## KnoxLogoutAllView
-- <i><b>Endpoint</b></i>: `v1/user/logout-knox-all/`
+- <i><b>Endpoint</b></i>: `/api/v1/user/logout-knox-all/`
 - <i><b>Method</b></i>: POST
 - <i><b>Description</b></i>: Logs out all user sessions using [PaletteTokenAuthentication](https://github.com/iamprecieee/palette-portal-api/blob/b58a5a0127d0ff8c41678606a657a5ae8ac3dcae/user/models.py#L146) as authentication_class. Any other knox sessions tokens are deleted. This view inherits from knox's [LogoutAllView](https://github.com/jazzband/django-rest-knox/blob/develop/knox/views.py#L95).
 
 ### Request Example (No content):
 ```shell
-POST /v1/user/logout-knox-all/ HTTP/1.1
+POST /api/v1/user/logout-knox-all/ HTTP/1.1
 Host: 127.0.0.1
 Authorization: Token 6edbb190af25503afcb1f84cb9754203e67a9318edef6705ce48ccea8c4b88c7
 ```
@@ -285,7 +286,7 @@ HTTP/1.1 200 OK
 Content-Type: application/json
 
 {
-    "Batch logout successful."
+    "detail": "Batch logout successful."
 }
 ```
 - <i><b>Error Responses</b></i>:
@@ -294,7 +295,7 @@ HTTP/1.1 401 Unauthorized
 Content-Type: application/json
 
 {
-    "Invalid token."
+    "detail": "Invalid token."
 }
 ```
 ```shell
@@ -302,19 +303,94 @@ HTTP/1.1 429 Too Many Requests
 Content-Type: application/json
 
 {
-    "Request was throttled. Expected available in 60 seconds."
+    "detail": "Request was throttled. Expected available in 60 seconds."
 }
 ```
 
+# Social Authentication
+## SocialAuthenticationBeginView
+- <i><b>Endpoint</b></i>: `/api/v1/user/social/begin/<str:backend>/`
+- <i><b>Method</b></i>: GET
+- <i><b>Description</b></i>: Initiates the social authentication process for the specified backend (e.g., Google, Twitter). This endpoint handles the redirection to the social authentication provider.
+
+### Request Example:
+```shell
+GET /api/v1/user/social/begin/google/ HTTP/1.1
+Host: 127.0.0.1
+```
+
+### Response Examples:
+- <i><b>Redirection to the social authentication provider</b></i>:
+```shell
+HTTP/1.1 302 Found
+Location: https://accounts.google.com/o/oauth2/auth?client_id=...
+```
+
+## SocialAuthenticationCompleteView
+- <i><b>Endpoint</b></i>: `/api/v1/user/social/complete/<str:backend>/`
+- <i><b>Method</b></i>: GET
+- <i><b>Description</b></i>: Completes the social authentication process for the specified backend. This endpoint is called by the social authentication provider after the user has authenticated. It uses the social backend to create a new user or access an existing user, and then handles the login with [SimpleJWT](https://github.com/jazzband/djangorestframework-simplejwt), providing access and refresh tokens.
+
+### Request Example:
+```shell
+GET /api/v1/user/social/complete/google/?code=4/0AY0e-g5eK3H... HTTP/1.1
+Host: 127.0.0.1
+```
+
+### Response Examples:
+- <i><b>Success Response</b></i>:
+- Existing User (Verified email):
+```shell
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+    "id": "5ec090f4-2bfb-4e43-a1f0-2480d89aca03",
+    "email": "admin@gmail.com",
+    "username": "admin",
+    "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzIxMjg5ODk1LCJpYXQiOjE3MjExNjAyOTUsImp0aSI6ImQ3Njg1YTU4NDlhNzQxYjE5YTgxMTE4M2MzMDk3MjIzIiwidXNlcl9pZCI6ImIyODc0ZjE5LTkwODItNDRmNy05NzQwLTRiYThjNDkwNWYxNSJ9.tCR1YExRvVn-_vveq-zSbUecqee8FQhvYGAEoPoCWc4",
+    "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTcyMTI0NjY5NSwiaWF0IjoxNzIxMTYwMjk1LCJqdGkiOiJiNGEzNGVhNjgzZGU0MWViYTdiNTM1ODlkY2ExM2YxOSIsInVzZXJfaWQiOiJiMjg3NGYxOS05MDgyLTQ0ZjctOTc0MC00YmE4YzQ5MDVmMTUifQ.Uu5403H3Ac-S-52AdNiPVBCu-ZZbkgYl85iqcfHwWfQ"
+}
+```
+- New User Created:
+```shell
+HTTP/1.1 201 Created
+Content-Type: application/json
+
+{
+    "detail": "User created successfully. A link has been sent to your email address. Click it to update your password and/or proceed to login."
+}
+```
+- <i><b>Error Responses</b></i>:
+- Existing User (Unverified email):
+```shell
+HTTP/1.1 400 Bad Request
+Content-Type: application/json
+
+{
+    "detail": "Existing user's email has not been verified. Check your email for a verification link or request a new one."
+}
+```
+- User Inactive:
+```shell
+HTTP/1.1 400 Bad Request
+Content-Type: application/json
+
+{
+    "detail": "User is inactive."
+}
+```
+
+
 # User Profile (Artist)
 ## ArtistProfileListView
-- <i><b>Endpoint</b></i>: `v1/user/profile/artist/`
+- <i><b>Endpoint</b></i>: `/api/v1/user/profile/artist/`
 - <i><b>Method</b></i>: GET
 - <i><b>Description</b></i>: Returns a list of all existing artists' data using both [PaletteTokenAuthentication](https://github.com/iamprecieee/palette-portal-api/blob/b58a5a0127d0ff8c41678606a657a5ae8ac3dcae/user/models.py#L146) and [JWTAuthentication](https://github.com/jazzband/djangorestframework-simplejwt/blob/master/rest_framework_simplejwt/authentication.py#L27) as authentication_classes.
 
 ### Request Example (No content):
 ```shell
-GET /v1/user/profile/artist/ HTTP/1.1
+GET /api/v1/user/profile/artist/ HTTP/1.1
 Host: 127.0.0.1
 Authorization: Token 6edbb190af25503afcb1f84cb9754203e67a9318edef6705ce48ccea8c4b88c7
 ```
@@ -346,7 +422,7 @@ HTTP/1.1 401 Unauthorized
 Content-Type: application/json
 
 {
-    "Authentication credentials were not provided."
+    "detail": "Authentication credentials were not provided."
 }
 ```
 ```shell
@@ -354,7 +430,7 @@ HTTP/1.1 429 Too Many Requests
 Content-Type: application/json
 
 {
-    "Request was throttled. Expected available in 60 seconds."
+    "detail": "Request was throttled. Expected available in 60 seconds."
 }
 ```
 - <i><b>Method</b></i>: POST
@@ -362,7 +438,7 @@ Content-Type: application/json
 
 ### Request Example:
 ```shell
-POST /v1/user/profile/artist/ HTTP/1.1
+POST /api/v1/user/profile/artist/ HTTP/1.1
 Host: 127.0.0.1
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzIxMzMxMjE5LCJpYXQiOjE3MjEyMDE2MTksImp0aSI6ImEzNDNmZDFmNjZlNTRkNGRiMjExMTcwNDM0NDI1YWE4IiwidXNlcl9pZCI6ImY2MWRkZjQ5LTc5NmUtNDExNi1iM2RmLTI5ZGE3ODFkNTgxYiJ9.WSjLHGEFXTxlaVvPEXASs-1vPeYoOnVZVoo13QheoNM
 
@@ -390,7 +466,7 @@ HTTP/1.1 401 Unauthorized
 Content-Type: application/json
 
 {
-    "Authentication credentials were not provided."
+    "detail": "Authentication credentials were not provided."
 }
 ```
 ```shell
@@ -398,7 +474,7 @@ HTTP/1.1 409 Conflict
 Content-Type: application/json
 
 {
-    "This user has an existing artist profile."
+    "detail": "This user has an existing artist profile."
 }
 ```
 ```shell
@@ -406,18 +482,18 @@ HTTP/1.1 429 Too Many Requests
 Content-Type: application/json
 
 {
-    "Request was throttled. Expected available in 60 seconds."
+    "detail": "Request was throttled. Expected available in 60 seconds."
 }
 ```
 
 ## ArtistProfileDetailView
-- <i><b>Endpoint</b></i>: `v1/user/profile/artist/<str:profile_id>/`
+- <i><b>Endpoint</b></i>: `/api/v1/user/profile/artist/<str:profile_id>/`
 - <i><b>Method</b></i>: GET
 - <i><b>Description</b></i>: Returns a dict of an existing artist's data using both [PaletteTokenAuthentication](https://github.com/iamprecieee/palette-portal-api/blob/b58a5a0127d0ff8c41678606a657a5ae8ac3dcae/user/models.py#L146) and [JWTAuthentication](https://github.com/jazzband/djangorestframework-simplejwt/blob/master/rest_framework_simplejwt/authentication.py#L27) as authentication_classes.
 
 ### Request Example (No content):
 ```shell
-GET /v1/user/profile/artist/<str:profile_id>/ HTTP/1.1
+GET /api/v1/user/profile/artist/<str:profile_id>/ HTTP/1.1
 Host: 127.0.0.1
 Authorization: Token 6edbb190af25503afcb1f84cb9754203e67a9318edef6705ce48ccea8c4b88c7
 ```
@@ -441,7 +517,7 @@ HTTP/1.1 401 Unauthorized
 Content-Type: application/json
 
 {
-    "Authentication credentials were not provided."
+    "detail": "Authentication credentials were not provided."
 }
 ```
 ```shell
@@ -449,7 +525,7 @@ HTTP/1.1 404 Not Found
 Content-Type: application/json
 
 {
-    "Profile does not exist."
+    "detail": "Profile does not exist."
 }
 ```
 ```shell
@@ -457,7 +533,7 @@ HTTP/1.1 429 Too Many Requests
 Content-Type: application/json
 
 {
-    "Request was throttled. Expected available in 60 seconds."
+    "detail": "Request was throttled. Expected available in 60 seconds."
 }
 ```
 - <i><b>Method</b></i>: PUT
@@ -465,7 +541,7 @@ Content-Type: application/json
 
 ### Request Example:
 ```shell
-PUT /v1/user/profile/artist/<str:profile_id>/ HTTP/1.1
+PUT /api/v1/user/profile/artist/<str:profile_id>/ HTTP/1.1
 Host: 127.0.0.1
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzIxMzMxMjE5LCJpYXQiOjE3MjEyMDE2MTksImp0aSI6ImEzNDNmZDFmNjZlNTRkNGRiMjExMTcwNDM0NDI1YWE4IiwidXNlcl9pZCI6ImY2MWRkZjQ5LTc5NmUtNDExNi1iM2RmLTI5ZGE3ODFkNTgxYiJ9.WSjLHGEFXTxlaVvPEXASs-1vPeYoOnVZVoo13QheoNM
 
@@ -493,7 +569,7 @@ HTTP/1.1 401 Unauthorized
 Content-Type: application/json
 
 {
-    "Authentication credentials were not provided."
+    "detail": "Authentication credentials were not provided."
 }
 ```
 ```shell
@@ -501,7 +577,7 @@ HTTP/1.1 403 Permission Denied
 Content-Type: application/json
 
 {
-    "You are not allowed to operate on another user's profile."
+    "detail": "You are not allowed to operate on another user's profile."
 }
 ```
 ```shell
@@ -509,7 +585,7 @@ HTTP/1.1 404 Not Found
 Content-Type: application/json
 
 {
-    "Profile does not exist."
+    "detail": "Profile does not exist."
 }
 ```
 ```shell
@@ -517,7 +593,7 @@ HTTP/1.1 429 Too Many Requests
 Content-Type: application/json
 
 {
-    "Request was throttled. Expected available in 60 seconds."
+    "detail": "Request was throttled. Expected available in 60 seconds."
 }
 ```
 
@@ -526,7 +602,7 @@ Content-Type: application/json
 
 ### Request Example (No content):
 ```shell
-DELETE /v1/user/profile/artist/<str:profile_id>/ HTTP/1.1
+DELETE /api/v1/user/profile/artist/<str:profile_id>/ HTTP/1.1
 Host: 127.0.0.1
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzIxMzMxMjE5LCJpYXQiOjE3MjEyMDE2MTksImp0aSI6ImEzNDNmZDFmNjZlNTRkNGRiMjExMTcwNDM0NDI1YWE4IiwidXNlcl9pZCI6ImY2MWRkZjQ5LTc5NmUtNDExNi1iM2RmLTI5ZGE3ODFkNTgxYiJ9.WSjLHGEFXTxlaVvPEXASs-1vPeYoOnVZVoo13QheoNM
 ```
@@ -543,7 +619,7 @@ HTTP/1.1 401 Unauthorized
 Content-Type: application/json
 
 {
-    "Authentication credentials were not provided."
+    "detail": "Authentication credentials were not provided."
 }
 ```
 ```shell
@@ -551,7 +627,7 @@ HTTP/1.1 403 Permission Denied
 Content-Type: application/json
 
 {
-    "You are not allowed to operate on another user's profile."
+    "detail": "You are not allowed to operate on another user's profile."
 }
 ```
 ```shell
@@ -559,7 +635,7 @@ HTTP/1.1 404 Not Found
 Content-Type: application/json
 
 {
-    "Profile does not exist."
+    "detail": "Profile does not exist."
 }
 ```
 ```shell
@@ -567,19 +643,19 @@ HTTP/1.1 429 Too Many Requests
 Content-Type: application/json
 
 {
-    "Request was throttled. Expected available in 60 seconds."
+    "detail": "Request was throttled. Expected available in 60 seconds."
 }
 ```
 
 # User Profile (Collector)
 ## CollectorProfileListView
-- <i><b>Endpoint</b></i>: `v1/user/profile/collector/`
+- <i><b>Endpoint</b></i>: `/api/v1/user/profile/collector/`
 - <i><b>Method</b></i>: GET
 - <i><b>Description</b></i>: Returns a list of all existing collectors' data using both [PaletteTokenAuthentication](https://github.com/iamprecieee/palette-portal-api/blob/b58a5a0127d0ff8c41678606a657a5ae8ac3dcae/user/models.py#L146) and [JWTAuthentication](https://github.com/jazzband/djangorestframework-simplejwt/blob/master/rest_framework_simplejwt/authentication.py#L27) as authentication_classes.
 
 ### Request Example (No content):
 ```shell
-GET /v1/user/profile/collector/ HTTP/1.1
+GET /api/v1/user/profile/collector/ HTTP/1.1
 Host: 127.0.0.1
 Authorization: Token 6edbb190af25503afcb1f84cb9754203e67a9318edef6705ce48ccea8c4b88c7
 ```
@@ -611,7 +687,7 @@ HTTP/1.1 401 Unauthorized
 Content-Type: application/json
 
 {
-    "Authentication credentials were not provided."
+    "detail": "Authentication credentials were not provided."
 }
 ```
 ```shell
@@ -619,7 +695,7 @@ HTTP/1.1 429 Too Many Requests
 Content-Type: application/json
 
 {
-    "Request was throttled. Expected available in 60 seconds."
+    "detail": "Request was throttled. Expected available in 60 seconds."
 }
 ```
 - <i><b>Method</b></i>: POST
@@ -627,7 +703,7 @@ Content-Type: application/json
 
 ### Request Example:
 ```shell
-POST /v1/user/profile/artist/ HTTP/1.1
+POST /api/v1/user/profile/artist/ HTTP/1.1
 Host: 127.0.0.1
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzIxMzMxMjE5LCJpYXQiOjE3MjEyMDE2MTksImp0aSI6ImEzNDNmZDFmNjZlNTRkNGRiMjExMTcwNDM0NDI1YWE4IiwidXNlcl9pZCI6ImY2MWRkZjQ5LTc5NmUtNDExNi1iM2RmLTI5ZGE3ODFkNTgxYiJ9.WSjLHGEFXTxlaVvPEXASs-1vPeYoOnVZVoo13QheoNM
 
@@ -655,7 +731,7 @@ HTTP/1.1 401 Unauthorized
 Content-Type: application/json
 
 {
-    "Authentication credentials were not provided."
+    "detail": "Authentication credentials were not provided."
 }
 ```
 ```shell
@@ -663,7 +739,7 @@ HTTP/1.1 409 Conflict
 Content-Type: application/json
 
 {
-    "This user has an existing collector profile."
+    "detail": "This user has an existing collector profile."
 }
 ```
 ```shell
@@ -671,18 +747,18 @@ HTTP/1.1 429 Too Many Requests
 Content-Type: application/json
 
 {
-    "Request was throttled. Expected available in 60 seconds."
+    "detail": "Request was throttled. Expected available in 60 seconds."
 }
 ```
 
 ## CollectorProfileDetailView
-- <i><b>Endpoint</b></i>: `v1/user/profile/collector/<str:profile_id>/`
+- <i><b>Endpoint</b></i>: `/api/v1/user/profile/collector/<str:profile_id>/`
 - <i><b>Method</b></i>: GET
 - <i><b>Description</b></i>: Returns a dict of an existing collector's data using both [PaletteTokenAuthentication](https://github.com/iamprecieee/palette-portal-api/blob/b58a5a0127d0ff8c41678606a657a5ae8ac3dcae/user/models.py#L146) and [JWTAuthentication](https://github.com/jazzband/djangorestframework-simplejwt/blob/master/rest_framework_simplejwt/authentication.py#L27) as authentication_classes.
 
 ### Request Example (No content):
 ```shell
-GET /v1/user/profile/collector/<str:profile_id>/ HTTP/1.1
+GET /api/v1/user/profile/collector/<str:profile_id>/ HTTP/1.1
 Host: 127.0.0.1
 Authorization: Token 6edbb190af25503afcb1f84cb9754203e67a9318edef6705ce48ccea8c4b88c7
 ```
@@ -706,7 +782,7 @@ HTTP/1.1 401 Unauthorized
 Content-Type: application/json
 
 {
-    "Authentication credentials were not provided."
+    "detail": "Authentication credentials were not provided."
 }
 ```
 ```shell
@@ -714,7 +790,7 @@ HTTP/1.1 404 Not Found
 Content-Type: application/json
 
 {
-    "Profile does not exist."
+    "detail": "Profile does not exist."
 }
 ```
 ```shell
@@ -722,7 +798,7 @@ HTTP/1.1 429 Too Many Requests
 Content-Type: application/json
 
 {
-    "Request was throttled. Expected available in 60 seconds."
+    "detail": "Request was throttled. Expected available in 60 seconds."
 }
 ```
 - <i><b>Method</b></i>: PUT
@@ -730,7 +806,7 @@ Content-Type: application/json
 
 ### Request Example:
 ```shell
-PUT /v1/user/profile/collector/<str:profile_id>/ HTTP/1.1
+PUT /api/v1/user/profile/collector/<str:profile_id>/ HTTP/1.1
 Host: 127.0.0.1
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzIxMzMxMjE5LCJpYXQiOjE3MjEyMDE2MTksImp0aSI6ImEzNDNmZDFmNjZlNTRkNGRiMjExMTcwNDM0NDI1YWE4IiwidXNlcl9pZCI6ImY2MWRkZjQ5LTc5NmUtNDExNi1iM2RmLTI5ZGE3ODFkNTgxYiJ9.WSjLHGEFXTxlaVvPEXASs-1vPeYoOnVZVoo13QheoNM
 
@@ -758,7 +834,7 @@ HTTP/1.1 401 Unauthorized
 Content-Type: application/json
 
 {
-    "Authentication credentials were not provided."
+    "detail": "Authentication credentials were not provided."
 }
 ```
 ```shell
@@ -766,7 +842,7 @@ HTTP/1.1 403 Permission Denied
 Content-Type: application/json
 
 {
-    "You are not allowed to operate on another user's profile."
+    "detail": "You are not allowed to operate on another user's profile."
 }
 ```
 ```shell
@@ -774,7 +850,7 @@ HTTP/1.1 404 Not Found
 Content-Type: application/json
 
 {
-    "Profile does not exist."
+    "detail": "Profile does not exist."
 }
 ```
 ```shell
@@ -782,7 +858,7 @@ HTTP/1.1 429 Too Many Requests
 Content-Type: application/json
 
 {
-    "Request was throttled. Expected available in 60 seconds."
+    "detail": "Request was throttled. Expected available in 60 seconds."
 }
 ```
 
@@ -791,7 +867,7 @@ Content-Type: application/json
 
 ### Request Example (No content):
 ```shell
-DELETE /v1/user/profile/collector/<str:profile_id>/ HTTP/1.1
+DELETE /api/v1/user/profile/collector/<str:profile_id>/ HTTP/1.1
 Host: 127.0.0.1
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzIxMzMxMjE5LCJpYXQiOjE3MjEyMDE2MTksImp0aSI6ImEzNDNmZDFmNjZlNTRkNGRiMjExMTcwNDM0NDI1YWE4IiwidXNlcl9pZCI6ImY2MWRkZjQ5LTc5NmUtNDExNi1iM2RmLTI5ZGE3ODFkNTgxYiJ9.WSjLHGEFXTxlaVvPEXASs-1vPeYoOnVZVoo13QheoNM
 ```
@@ -808,7 +884,7 @@ HTTP/1.1 401 Unauthorized
 Content-Type: application/json
 
 {
-    "Authentication credentials were not provided."
+    "detail": "Authentication credentials were not provided."
 }
 ```
 ```shell
@@ -816,7 +892,7 @@ HTTP/1.1 403 Permission Denied
 Content-Type: application/json
 
 {
-    "You are not allowed to operate on another user's profile."
+    "detail": "You are not allowed to operate on another user's profile."
 }
 ```
 ```shell
@@ -824,7 +900,7 @@ HTTP/1.1 404 Not Found
 Content-Type: application/json
 
 {
-    "Profile does not exist."
+    "detail": "Profile does not exist."
 }
 ```
 ```shell
@@ -832,7 +908,7 @@ HTTP/1.1 429 Too Many Requests
 Content-Type: application/json
 
 {
-    "Request was throttled. Expected available in 60 seconds."
+    "detail": "Request was throttled. Expected available in 60 seconds."
 }
 ```
 
@@ -848,7 +924,7 @@ Content-Type: application/json
 ## Example Usage:
 ### Request:
 ```shell
-GET /v1/user/profile/collector/<str:profile_id>/ HTTP/1.1
+GET /api/v1/user/profile/collector/<str:profile_id>/ HTTP/1.1
 Host: 127.0.0.1
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzIxMzMxMjE5LCJpYXQiOjE3MjEyMDE2MTksImp0aSI6ImEzNDNmZDFmNjZlNTRkNGRiMjExMTcwNDM0NDI1YWE4IiwidXNlcl9pZCI6ImY2MWRkZjQ5LTc5NmUtNDExNi1iM2RmLTI5ZGE3ODFkNTgxYiJ9.WSjLHGEFXTxlaVvPEXASs-1vPeYoOnVZVoo13QheoNM
 ```
@@ -859,7 +935,7 @@ HTTP/1.1 401 Unauthorized
 Content-Type: application/json
 
 {
-    "Invalid token."
+    "detail": "Invalid token."
 }
 ```
 - Token Valid:

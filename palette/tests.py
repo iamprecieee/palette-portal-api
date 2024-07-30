@@ -8,11 +8,13 @@ from .models import Genre, Artwork
 from .cart import Cart
 from user.models import Artist, Collector
 
-from rest_framework.test import APITestCase, APIRequestFactory
+from rest_framework.test import APITestCase, override_settings
 from rest_framework import status
 from cloudinary.api import resource
 import os
 from time import sleep
+import pickle
+from uuid import uuid4
 
 
 User = get_user_model()
@@ -20,6 +22,7 @@ static_dir = settings.STATICFILES_DIRS[0]
 image_file = settings.BASE_DIR/"static/image/test.png"
 
 
+@override_settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_TASK_EAGER_PROPAGATES=True)
 class GenreListTestViewCase(APITestCase):
     def setUp(self):
         self.user1 = User.objects.create_superuser(
@@ -31,12 +34,13 @@ class GenreListTestViewCase(APITestCase):
         
         self.genre_list = reverse("palette:genre-list")
         self.jwt_login = reverse("user:jwt-login")
+        self.knox_login = reverse("user:knox-login")
         
         self.token = self.client.post(
             self.jwt_login, data={"email": self.user1.email, "password": "Test,123"}
         )
         self.token1 = self.client.post(
-            self.jwt_login, data={"email": self.user2.email, "password": "Test,123"}
+            self.knox_login, data={"email": self.user2.email, "password": "Test,123"}
         )
         
         Genre.objects.create(name="Genre")
@@ -57,32 +61,33 @@ class GenreListTestViewCase(APITestCase):
         # Checks that queries are cached properly
         self.assertIsNotNone(cache.get("genre_list"))
         cache.clear()
-
+        
         response1 = self.client.get(
             self.genre_list,
             headers={"Authorization": f"Bearer {self.token.data["access"]}"}
         )
         self.assertEqual(response1.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response1.data), 1)
-        self.assertEqual(response1.data[0]["name"], genre.name)
+        self.assertEqual(len(response1.data), 3)
+        self.assertEqual(response1.data["results"][0]["name"], genre.name)
         self.assertIsNotNone(cache.get("genre_list"))
 
     def test_get_genres_from_cache_success(self):
         genre = Genre.objects.create(name="Vector")
-        cache.set("genre_list", [genre])
+        genres = Genre.objects.all()
+        cache.set("genre_list", pickle.dumps(genres))
         
         response = self.client.get(self.genre_list)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["name"], genre.name)
+        self.assertEqual(len(response.data), 3)
+        self.assertEqual(response.data["results"][0]["name"], genre.name)
 
         response1 = self.client.get(
             self.genre_list,
             headers={"Authorization": f"Bearer {self.token.data["access"]}"}
         )
         self.assertEqual(response1.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response1.data), 1)
-        self.assertEqual(response1.data[0]["name"], genre.name)
+        self.assertEqual(len(response1.data), 3)
+        self.assertEqual(response1.data["results"][0]["name"], genre.name)
 
     def test_create_genre_success(self):
         data = {"name": "Cubism"}
@@ -93,8 +98,8 @@ class GenreListTestViewCase(APITestCase):
             headers={"Authorization": f"Bearer {self.token.data["access"]}"}   
         )
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Genre.objects.count(), 1)
-        self.assertEqual(Genre.objects.get().name, "Cubism")
+        self.assertEqual(Genre.objects.count(), 2)
+        self.assertIsNotNone(Genre.objects.filter(name="Cubism").first())
 
     def test_create_genre_failure(self):
         data = {"name": ""}
@@ -110,7 +115,7 @@ class GenreListTestViewCase(APITestCase):
         response1 = self.client.post(
             self.genre_list,
             data,
-            headers={"Authorization": f"Bearer {self.token1.data["access"]}"}   
+            headers={"Authorization": f"Token {self.token1.data["token"]}"}   
         )
         self.assertEqual(response1.status_code, status.HTTP_403_FORBIDDEN)
         self.assertEqual("You must be an admin to perform this action.", response1.data)
@@ -132,7 +137,7 @@ class GenreListTestViewCase(APITestCase):
     def test_throttling(self):
         for i in range(0, 11):
             response = self.client.get(
-                self.url
+                self.genre_list
             )
 
         self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)
@@ -140,7 +145,7 @@ class GenreListTestViewCase(APITestCase):
         
         for i in range(0, 21):
             response1 = self.client.get(
-                self.url,
+                self.genre_list,
                 headers={"Authorization": f"Bearer {self.token.data["access"]}"}
             )
 
@@ -152,6 +157,7 @@ class GenreListTestViewCase(APITestCase):
         sleep(15)
 
 
+@override_settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_TASK_EAGER_PROPAGATES=True)
 class GenreDetailViewTestCase(APITestCase):
     def setUp(self):
         self.user1 = User.objects.create_superuser(
@@ -185,8 +191,8 @@ class GenreDetailViewTestCase(APITestCase):
         self.assertIsInstance(response.data, dict)
 
     def test_get_genre_from_cache_success(self):
-        cache.set(f"genre_{self.genre.slug}", self.genre)
-
+        cache.set(f"genre_{self.genre.slug}", pickle.dumps(self.genre))
+        
         response = self.client.get(self.genre_detail)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["name"], self.genre.name)
@@ -199,6 +205,7 @@ class GenreDetailViewTestCase(APITestCase):
         self.assertIn("Genre does not exist.", response.data)
 
     def test_put_genre_success(self):
+        genre_detail1 = reverse("palette:genre-detail", kwargs={"slug": "cubism"})
         response = self.client.put(
             self.genre_detail,
             data={"name": "Cubism"},
@@ -206,6 +213,13 @@ class GenreDetailViewTestCase(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_202_ACCEPTED)
         self.assertEqual(response.data["slug"], "cubism")
+        
+        response1 = self.client.get(
+            genre_detail1,
+            headers={"Authorization": f"Bearer {self.token.data["access"]}"}
+        )
+        self.assertEqual(response1.status_code, 200)
+        self.assertEqual(response1.data["slug"], "cubism")
 
     def test_put_genre_failure(self):
         response = self.client.put(
@@ -273,6 +287,7 @@ class GenreDetailViewTestCase(APITestCase):
         sleep(15)
 
 
+@override_settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_TASK_EAGER_PROPAGATES=True)
 class ArtworkListTestViewCase(APITestCase):
     def setUp(self):
         self.user1 = User.objects.create_user(
@@ -308,24 +323,26 @@ class ArtworkListTestViewCase(APITestCase):
 
         response = self.client.get(self.artwork_list)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["name"], artwork.name)
+        self.assertEqual(len(response.data), 3)
+        self.assertEqual(response.data["results"][0]["name"], artwork.name)
         self.assertIsNotNone(cache.get("artwork_list"))
 
     def test_get_artwork_from_cache_success(self):
         artwork = Artwork.objects.create(name="Scream", artist=self.artist)
         artwork.genre.set([self.genre.id])
-        cache.set("artwork_list", [artwork])
+        artworks = Artwork.objects.all()
+        cache.set("artwork_list", pickle.dumps(artworks))
 
         response = self.client.get(self.artwork_list)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]["name"], artwork.name)
+        self.assertEqual(len(response.data), 3)
+        self.assertEqual(response.data["results"][0]["name"], artwork.name)
 
     def test_create_artwork_success(self):
+        name = str(uuid4())
         with open(image_file, "rb") as image:
             data = {
-                "name": "Mona Lisa",
+                "name": name,
                 "genres": ["Appropriation"],
                 "image": image
             }
@@ -337,7 +354,7 @@ class ArtworkListTestViewCase(APITestCase):
             )
             self.assertEqual(response.status_code, status.HTTP_201_CREATED)
             self.assertEqual(Artwork.objects.count(), 1)
-            self.assertEqual(Artwork.objects.get().name, "Mona Lisa")
+            self.assertEqual(Artwork.objects.get().name, name)
             
             artwork = Artwork.objects.filter(id=response.data["id"])
             artwork.delete()
@@ -375,6 +392,7 @@ class ArtworkListTestViewCase(APITestCase):
         sleep(15)
 
 
+@override_settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_TASK_EAGER_PROPAGATES=True)
 class ArtworkDetailViewTestCase(APITestCase):
     def setUp(self):
         self.user1 = User.objects.create_user(
@@ -392,13 +410,15 @@ class ArtworkDetailViewTestCase(APITestCase):
         self.collector = Collector.objects.create(user=self.user3)
         
         self.genre = Genre.objects.create(name="Abstract", slug="abstract")
+        self.name = str(uuid4())
         with open(image_file, "rb",) as image:
             image_file_data = SimpleUploadedFile(
                 "test.png", image.read(), content_type="image/png"
             )
+            
             self.artwork = Artwork.objects.create(
-                name="Abstracta",
-                slug="abstracta",
+                name=self.name,
+                slug=self.name,
                 artist=self.artist1,
                 image=image_file_data,
             )
@@ -427,10 +447,10 @@ class ArtworkDetailViewTestCase(APITestCase):
 
         response = self.client.get(self.artwork_detail)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual("Abstracta", response.data["name"])
+        self.assertEqual(self.name, response.data["name"])
 
     def test_get_artwork_from_cache_success(self):
-        cache.set(f"artwork_{self.artwork.slug}", self.artwork)
+        cache.set(f"artwork_{self.artwork.slug}", pickle.dumps(self.artwork))
 
         response = self.client.get(self.artwork_detail)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -480,7 +500,7 @@ class ArtworkDetailViewTestCase(APITestCase):
         self.client.get(url2)
         self.assertIsNotNone(cache.get("artwork_list"))
         
-        cache.set(f"artwork_{self.artwork.slug}", self.artwork)
+        cache.set(f"artwork_{self.artwork.slug}", pickle.dumps(self.artwork))
 
         self.client.get(self.artwork_detail)
         self.assertIsNotNone(cache.get(f"artwork_{self.artwork.slug}"))
@@ -491,7 +511,7 @@ class ArtworkDetailViewTestCase(APITestCase):
             headers={"Authorization": f"Bearer {self.token1.data["access"]}"}
         )
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(0, len(cache.get("artwork_list")))
+        self.assertEqual(0, len(pickle.loads(cache.get("artwork_list"))))
         self.assertIsNone(cache.get(f"artwork_{self.artwork.slug}"))
 
         result = None
@@ -530,6 +550,7 @@ class ArtworkDetailViewTestCase(APITestCase):
         sleep(15)
 
 
+@override_settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_TASK_EAGER_PROPAGATES=True)
 class CartListTestCase(APITestCase):
     def setUp(self):
         self.cart_list = reverse("palette:cart-list")
@@ -576,6 +597,7 @@ class CartListTestCase(APITestCase):
         sleep(15)
 
 
+@override_settings(CELERY_TASK_ALWAYS_EAGER=True, CELERY_TASK_EAGER_PROPAGATES=True)
 class CartDetailTestCase(APITestCase):
     def setUp(self):
         self.jwt_login = reverse("user:jwt-login")
@@ -591,13 +613,14 @@ class CartDetailTestCase(APITestCase):
         self.collector = Collector.objects.create(user=self.user2)
         
         self.genre = Genre.objects.create(name="Abstract", slug="abstract")
+        self.name = str(uuid4())
         with open(os.path.join(static_dir, "image/test.png"), "rb") as image:
             image_file = SimpleUploadedFile(
                 "test.png", image.read(), content_type="image/png"
             )
             self.artwork = Artwork.objects.create(
-                name="Abstracta",
-                slug="abstracta",
+                name=self.name,
+                slug=self.name,
                 artist=self.artist,
                 image=image_file,
             )
@@ -648,7 +671,7 @@ class CartDetailTestCase(APITestCase):
             headers={"Authorization": f"Bearer {self.token2.data["access"]}"}
         )
         self.assertEqual(response1.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual("Artwork not found.", response1.data)
+        self.assertEqual("Artwork does not exist.", response1.data)
 
     def test_put_cart_detail_success(self):
         response = self.client.put(
@@ -666,17 +689,16 @@ class CartDetailTestCase(APITestCase):
         self.assertEqual(response1.status_code, status.HTTP_202_ACCEPTED)
         self.assertEqual(2, list(response1.data)[0]["quantity"])
         
-    
     def test_put_cart_detail_failure(self):
         response = self.client.put(
             reverse(
                 "palette:cart-detail",
-                kwargs={"id": "4d9dc378-24aa-4148-a8f7-772aad7915d7"},
+                kwargs={"artwork_id": "4d9dc378-24aa-4148-a8f7-772aad7915d7"},
             ),
             headers={"Authorization": f"Bearer {self.token2.data["access"]}"}
         )
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
-        self.assertEqual("Artwork not found.", response.data)
+        self.assertEqual("Artwork does not exist.", response.data)
         
         response1 = self.client.put(
             reverse(

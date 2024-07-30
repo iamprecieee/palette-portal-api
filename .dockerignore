@@ -9,3 +9,5 @@ media/
 .cache/
 staticfiles/
 .bash_history
+celerybeat-schedule
+.python_history

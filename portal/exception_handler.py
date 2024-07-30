@@ -22,12 +22,7 @@ def palette_exception_handler(exc, context):
     if isinstance(exc, (Throttled, NotFound)):
         response.data = exc.detail
 
-    if isinstance(exc, ValueError):
-        response = Response(
-            exc.args[0].capitalize(), status=status.HTTP_400_BAD_REQUEST
-        )
-
-    if isinstance(exc, (AuthenticationFailed, NotAuthenticated, PermissionDenied)):
+    elif isinstance(exc, (AuthenticationFailed, NotAuthenticated, PermissionDenied)):
         try:
             if exc.detail and exc.detail["code"] == "user_not_found":
                 response.data = exc.detail["detail"]
@@ -38,20 +33,25 @@ def palette_exception_handler(exc, context):
         except:
             response.data = exc.detail
 
-    if isinstance(exc, TokenError):
+    elif isinstance(exc, TokenError):
         response = Response(exc.args)
         # response.data = InvalidToken(TokenError.args)
 
-    if isinstance(exc, IntegrityError):
-        response = Response(exc.args[0].capitalize(), status=status.HTTP_409_CONFLICT)
+    elif isinstance(exc, (IntegrityError, ValueError)):
+        try:
+            detail = exc.args[0].capitalize()
+        except:
+            detail = exc.args
+            
+        response = Response(detail, status=status.HTTP_409_CONFLICT)
 
-    if isinstance(exc, CoreValidationError):
+    elif isinstance(exc, CoreValidationError):
         response = Response(str(exc).strip("[]'"), status=status.HTTP_400_BAD_REQUEST)
 
-    if isinstance(exc, PermissionError):
+    elif isinstance(exc, PermissionError):
         response = Response(exc.args[0], status=status.HTTP_403_FORBIDDEN)
 
-    if isinstance(exc, ValidationError):
+    elif isinstance(exc, ValidationError):
         error_list = []
         try:
             for key, value in exc.detail.items():
