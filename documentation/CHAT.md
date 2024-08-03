@@ -16,4 +16,4 @@
 
 ## Live Test link
 
-- [palette portal chat](https://palette-portal-api.onrender.com/v1/chat/)
+- [palette portal chat](https://palette-portal-api.onrender.com/v1/chat/)...to be updated
