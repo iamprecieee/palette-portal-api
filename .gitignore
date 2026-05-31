@@ -11,6 +11,7 @@ staticfiles/
 celerybeat-schedule
 .python_history
 certs/
+branch_structure.json
 temp_auto_push.bat
 temp_interactive_push.bat
 .gitignore
